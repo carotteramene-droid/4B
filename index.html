@@ -64,6 +64,12 @@
         }
         .msg-actions { opacity: 0; transition: opacity 0.2s; }
         .group:hover .msg-actions { opacity: 1; }
+        
+        /* CORRECTIF IPAD : Toujours afficher les actions sur tactile */
+        @media (hover: none) {
+            .msg-actions { opacity: 1 !important; margin-bottom: 4px; }
+        }
+
         .seen-list { font-size: 9px; color: rgba(255,255,255,0.7); margin-top: 2px; }
     </style>
 </head>
@@ -254,7 +260,6 @@
             document.getElementById('chat-modal').classList.remove('hidden'); 
             document.getElementById('chat-notif').style.display = 'none'; 
             await loadGlobalComments();
-            // Marquer le dernier message comme lu
             const { data } = await _supabase.from('commentaires').select('id').is('devoir_id', null).order('id', { ascending: false }).limit(1);
             if(data && data[0]) localStorage.setItem('lastReadMsg', data[0].id);
         }
@@ -277,6 +282,7 @@
             }
         }
 
+        // FONCTION CHAT MISE À JOUR POUR IPAD
         async function loadGlobalComments() {
             const { data: msgs } = await _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null).order('created_at', { ascending: true });
             const cont = document.getElementById('global-comments-container');
@@ -287,15 +293,19 @@
                 const sameAsLast = c.auteur === lastAuteur;
                 const vues = c.vues_messages?.map(v => v.user_pseudo).join(', ') || "";
 
-                // Enregistrer que j'ai vu ce message s'il n'est pas à moi
                 if(!isMe) markAsSeen(c.id);
 
                 html += `
                 <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${sameAsLast ? 'mt-0.5' : 'mt-4'}">
                     ${!sameAsLast ? `<span class="text-[10px] font-bold text-gray-500 px-2 mb-1">${c.auteur}</span>` : ''}
-                    <div class="group relative flex items-center gap-2" oncontextmenu="event.preventDefault(); alert('Vu par: ${vues || 'Personne'}')" title="Maintenir pour voir les lectures">
-                        ${isMe ? `<div class="msg-actions flex gap-1"><button onclick="editComment(${c.id}, '${c.message.replace(/'/g, "\\'")}')" class="text-blue-500 text-xs">✏️</button><button onclick="deleteComment(${c.id})" class="text-red-500 text-xs">🗑️</button></div>` : ''}
-                        <div class="p-3 px-4 rounded-2xl text-base shadow-sm max-w-[85%] ${isMe ? 'liquid-bubble-me text-white rounded-tr-none' : 'liquid-bubble text-gray-800 rounded-tl-none'}">
+                    <div class="group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1">
+                        ${isMe ? `
+                            <div class="msg-actions flex gap-2">
+                                <button onclick="editComment(${c.id}, '${c.message.replace(/'/g, "\\'")}')" class="bg-white/60 p-1 px-2 rounded-lg text-blue-600 text-[9px] font-black shadow-sm">MODIFIER</button>
+                                <button onclick="deleteComment(${c.id})" class="bg-white/60 p-1 px-2 rounded-lg text-red-500 text-[9px] font-black shadow-sm">SUPPRIMER</button>
+                            </div>` : ''}
+                        <div onclick="alert('Vu par : ${vues || 'Personne'}')" 
+                             class="p-3 px-4 rounded-2xl text-base shadow-sm max-w-[85%] cursor-pointer active:scale-95 transition-transform ${isMe ? 'liquid-bubble-me text-white rounded-tr-none' : 'liquid-bubble text-gray-800 rounded-tl-none'}">
                             ${c.message || ""}
                             ${isMe && vues ? `<div class="seen-list">✓ Vu par ${vues}</div>` : ''}
                         </div>
