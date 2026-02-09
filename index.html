@@ -65,7 +65,6 @@
         .msg-actions { opacity: 0; transition: opacity 0.2s; }
         .group:hover .msg-actions { opacity: 1; }
         
-        /* CORRECTIF IPAD : Toujours afficher les actions sur tactile */
         @media (hover: none) {
             .msg-actions { opacity: 1 !important; margin-bottom: 4px; }
         }
@@ -282,10 +281,13 @@
             }
         }
 
-        // FONCTION CHAT MISE À JOUR POUR IPAD
+        // FONCTION CHAT CORRIGÉE : SCROLL INTELLIGENT + IPAD
         async function loadGlobalComments() {
-            const { data: msgs } = await _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null).order('created_at', { ascending: true });
             const cont = document.getElementById('global-comments-container');
+            const isAtBottom = cont.scrollHeight - cont.clientHeight <= cont.scrollTop + 50;
+            const isFirstLoad = cont.innerHTML === "";
+
+            const { data: msgs } = await _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null).order('created_at', { ascending: true });
             let html = ""; let lastAuteur = "";
 
             for(let c of msgs) {
@@ -313,7 +315,8 @@
                 </div>`;
                 lastAuteur = c.auteur;
             }
-            cont.innerHTML = html; cont.scrollTop = cont.scrollHeight;
+            cont.innerHTML = html;
+            if (isAtBottom || isFirstLoad) cont.scrollTop = cont.scrollHeight;
         }
 
         async function markAsSeen(msgId) {
