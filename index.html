@@ -70,6 +70,7 @@
         }
 
         .seen-list { font-size: 9px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+        .msg-time { font-size: 9px; opacity: 0.6; font-weight: bold; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -281,7 +282,7 @@
             }
         }
 
-        // FONCTION CHAT CORRIGÉE : SCROLL INTELLIGENT + IPAD
+        // FONCTION CHAT CORRIGÉE : SCROLL INTELLIGENT + IPAD + HEURE
         async function loadGlobalComments() {
             const cont = document.getElementById('global-comments-container');
             const isAtBottom = cont.scrollHeight - cont.clientHeight <= cont.scrollTop + 50;
@@ -294,12 +295,21 @@
                 const isMe = c.auteur === currentUser;
                 const sameAsLast = c.auteur === lastAuteur;
                 const vues = c.vues_messages?.map(v => v.user_pseudo).join(', ') || "";
+                
+                // Formater l'heure (HH:mm)
+                const msgDate = new Date(c.created_at);
+                const timeStr = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
                 if(!isMe) markAsSeen(c.id);
 
                 html += `
                 <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${sameAsLast ? 'mt-0.5' : 'mt-4'}">
-                    ${!sameAsLast ? `<span class="text-[10px] font-bold text-gray-500 px-2 mb-1">${c.auteur}</span>` : ''}
+                    ${!sameAsLast ? `
+                        <div class="flex items-center gap-2 px-2 mb-1">
+                            <span class="text-[10px] font-bold text-gray-500">${c.auteur}</span>
+                            ${!isMe ? `<span class="msg-time text-gray-400">${timeStr}</span>` : ''}
+                        </div>
+                    ` : ''}
                     <div class="group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1">
                         ${isMe ? `
                             <div class="msg-actions flex gap-2">
@@ -309,7 +319,10 @@
                         <div onclick="alert('Vu par : ${vues || 'Personne'}')" 
                              class="p-3 px-4 rounded-2xl text-base shadow-sm max-w-[85%] cursor-pointer active:scale-95 transition-transform ${isMe ? 'liquid-bubble-me text-white rounded-tr-none' : 'liquid-bubble text-gray-800 rounded-tl-none'}">
                             ${c.message || ""}
-                            ${isMe && vues ? `<div class="seen-list">✓ Vu par ${vues}</div>` : ''}
+                            <div class="flex justify-between items-center gap-4 mt-1">
+                                ${isMe && vues ? `<div class="seen-list">✓ Vu par ${vues}</div>` : '<div></div>'}
+                                ${isMe ? `<span class="msg-time text-blue-200 text-[8px]">${timeStr}</span>` : ''}
+                            </div>
                         </div>
                     </div>
                 </div>`;
