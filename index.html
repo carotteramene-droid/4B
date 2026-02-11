@@ -79,7 +79,7 @@
     <div id="login-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-blue-50/60 backdrop-blur-xl">
         <div class="glass-card p-10 rounded-[2.5rem] text-center max-w-sm w-full modal-animate border-white/50">
             <div class="mb-6 inline-block p-4 bg-white rounded-3xl shadow-sm text-4xl">🎓</div>
-            <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Espace 4-B (mdp sur smartschool)</h1>
+            <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Espace 4-B</h1>
             <p class="text-gray-500 mb-6 text-sm">Entrez votre pseudo et code</p>
             <input type="text" id="login-pseudo" placeholder="Pseudo" class="w-full p-4 bg-white/80 rounded-2xl mb-3 outline-none focus:ring-4 ring-blue-200 text-center font-bold">
             <input type="password" id="login-pwd" placeholder="MDP" class="w-full p-4 bg-white/80 rounded-2xl mb-6 outline-none focus:ring-4 ring-blue-200 text-center font-bold">
@@ -172,7 +172,7 @@
         const SUPABASE_URL = 'https://lujaxaeecbntqprpilfq.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_Eu4HsA9a-QVmsfB8jQurrA_P4S70Nbr';
         let _supabase;
-        try { _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { }
+        try { _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.error("Erreur Supabase init"); }
 
         const schedule = {
             "08:15": ["Physique", "Anglais", "Géographie", "Néerlandais", "Néerlandais"],
@@ -189,6 +189,7 @@
 
         let currentUser = "", currentUserId = "", selectedDay = "", selectedHour = "";
         let selectedFile = null;
+        let isAdmin = false;
 
         window.onload = () => { document.getElementById('date-selector').value = new Date().toISOString().split('T')[0]; };
 
@@ -197,7 +198,7 @@
             const pwd = document.getElementById('login-pwd').value;
             const { data } = await _supabase.from('utilisateurs').select('*').eq('pseudo', pseudo).eq('password', pwd).single();
             if (data) {
-                currentUser = data.pseudo; currentUserId = data.id;
+                currentUser = data.pseudo; currentUserId = data.id; isAdmin = data.is_admin;
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
                 updateWelcomeUI();
@@ -210,9 +211,22 @@
         }
 
         function showProfileOptions() {
-            const choice = prompt("Que voulez-vous modifier ?\n1. Mon Pseudo\n2. Mon Mot de passe\n(Tapez 1 ou 2)");
+            let menu = "Que voulez-vous modifier ?\n1. Mon Pseudo\n2. Mon Mot de passe";
+            if(currentUser === "Yassine El") menu += "\n3. Ajouter un Admin";
+            
+            const choice = prompt(menu + "\n(Tapez le numéro)");
             if(choice === "1") changePseudo();
             else if(choice === "2") changePwd();
+            else if(choice === "3" && currentUser === "Yassine El") addAdmin();
+        }
+
+        async function addAdmin() {
+            const targetPseudo = prompt("Pseudo de la personne à nommer Admin :");
+            if (targetPseudo) {
+                const { error } = await _supabase.from('utilisateurs').update({ is_admin: true }).eq('pseudo', targetPseudo);
+                if (!error) alert(targetPseudo + " est maintenant Admin !");
+                else alert("Erreur : Utilisateur introuvable.");
+            }
         }
 
         async function changePseudo() {
@@ -283,15 +297,15 @@
             }
         }
 
-        // --- FONCTION DE BANNISSEMENT (Yassine El uniquement) ---
         async function banUser(pseudo) {
-            if (currentUser !== "Yassine El") return;
+            if (!isAdmin) return;
             const minutes = prompt(`Bannir ${pseudo} pendant combien de minutes ?`, "60");
             if (!minutes) return;
             
             const until = new Date(Date.now() + parseInt(minutes) * 60000).toISOString();
             const { error } = await _supabase.from('utilisateurs').update({ banned_until: until }).eq('pseudo', pseudo);
             if (!error) alert(`${pseudo} est banni jusqu'à ${new Date(until).toLocaleTimeString()}`);
+            else alert("Erreur lors du bannissement.");
         }
 
         async function loadGlobalComments() {
@@ -302,11 +316,11 @@
             const { data: msgs } = await _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null).order('created_at', { ascending: true });
             let html = ""; let lastAuteur = "";
 
+            if (!msgs) return;
+
             for(let c of msgs) {
                 const isMe = c.auteur === currentUser;
                 const sameAsLast = c.auteur === lastAuteur;
-                
-                // FILTRE : On n'affiche pas Yassine El dans la liste des gens qui ont vu le message
                 const vues = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
                 
                 const msgDate = new Date(c.created_at);
@@ -324,19 +338,22 @@
                     }
                 }
 
+                // Nettoyage du message pour le prompt d'édition
+                const cleanMsg = (c.message || "").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
                 html += `
                 <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${sameAsLast ? 'mt-0.5' : 'mt-4'}">
                     ${!sameAsLast ? `
                         <div class="flex items-center gap-2 px-2 mb-1">
                             <span class="text-[10px] font-bold text-gray-500">${c.auteur}</span>
-                            ${currentUser === "Yassine El" && !isMe ? `<button onclick="banUser('${c.auteur}')" class="text-[8px] text-red-500 font-bold border border-red-200 px-1 rounded hover:bg-red-50">BANNIR</button>` : ''}
+                            ${isAdmin && !isMe ? `<button onclick="banUser('${c.auteur}')" class="text-[8px] text-red-500 font-bold border border-red-200 px-1 rounded hover:bg-red-50">BANNIR</button>` : ''}
                             ${!isMe ? `<span class="msg-time text-gray-400">${timeStr}</span>` : ''}
                         </div>
                     ` : ''}
                     <div class="group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1">
                         ${isMe ? `
                             <div class="msg-actions flex gap-2">
-                                <button onclick="editComment(${c.id}, '${c.message ? c.message.replace(/'/g, "\\'") : ""}')" class="bg-white/60 p-1 px-2 rounded-lg text-blue-600 text-[9px] font-black shadow-sm">MODIFIER</button>
+                                <button onclick="editComment(${c.id}, '${cleanMsg}')" class="bg-white/60 p-1 px-2 rounded-lg text-blue-600 text-[9px] font-black shadow-sm">MODIFIER</button>
                                 <button onclick="deleteComment(${c.id})" class="bg-white/60 p-1 px-2 rounded-lg text-red-500 text-[9px] font-black shadow-sm">SUPPRIMER</button>
                             </div>` : ''}
                         <div onclick="alert('Vu par : ${vues || 'Personne'}')" 
@@ -357,25 +374,32 @@
         }
 
         async function markAsSeen(msgId) {
-            // CONDITION : Si c'est Yassine El, on ne marque pas le message comme vu dans la base
             if (currentUser === "Yassine El") return;
             await _supabase.from('vues_messages').upsert([{ message_id: msgId, user_pseudo: currentUser }], { onConflict: 'message_id, user_pseudo' });
         }
 
         async function editComment(id, oldMsg) {
             const newMsg = prompt("Modifier le message :", oldMsg);
-            if (newMsg && newMsg !== oldMsg) { await _supabase.from('commentaires').update({ message: newMsg }).eq('id', id); loadGlobalComments(); }
+            if (newMsg !== null && newMsg.trim() !== "" && newMsg !== oldMsg) { 
+                const { error } = await _supabase.from('commentaires').update({ message: newMsg }).eq('id', id); 
+                if(!error) await loadGlobalComments(); 
+                else alert("Erreur lors de la modification");
+            }
         }
 
         async function deleteComment(id) {
-            if (confirm("Supprimer ce message ?")) { await _supabase.from('commentaires').delete().eq('id', id); loadGlobalComments(); }
+            if (confirm("Supprimer ce message ?")) { 
+                const { error } = await _supabase.from('commentaires').delete().eq('id', id); 
+                if(!error) await loadGlobalComments(); 
+                else alert("Erreur lors de la suppression");
+            }
         }
 
         async function sendGlobalComment() {
-            // VERIFICATION BANNISSEMENT
             const { data: userCheck } = await _supabase.from('utilisateurs').select('banned_until').eq('pseudo', currentUser).single();
             if (userCheck?.banned_until && new Date(userCheck.banned_until) > new Date()) {
-                alert(`Tu es banni jusqu'au ${new Date(userCheck.banned_until).toLocaleString()}`);
+                const dateFin = new Date(userCheck.banned_until).toLocaleString();
+                alert(`Tu as été banni de l'espace chat jusqu'au ${dateFin}.`);
                 return;
             }
 
@@ -402,17 +426,19 @@
                 fileUrl = linkData.publicUrl;
             }
 
-            const { data } = await _supabase.from('commentaires').insert([{ 
+            const { data, error } = await _supabase.from('commentaires').insert([{ 
                 auteur: currentUser, 
                 message: m,
                 file_url: fileUrl 
             }]).select();
 
-            if(data) localStorage.setItem('lastReadMsg', data[0].id);
-            input.value = ""; 
-            clearFile(); 
+            if(!error && data) {
+                localStorage.setItem('lastReadMsg', data[0].id);
+                input.value = ""; 
+                clearFile(); 
+                await loadGlobalComments();
+            }
             btn.disabled = false;
-            loadGlobalComments();
         }
 
         async function fetchDevoirs() {
@@ -486,4 +512,3 @@
     </script>
 </body>
 </html>
-
