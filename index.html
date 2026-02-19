@@ -114,18 +114,22 @@
                 <input type="date" id="date-selector" onchange="fetchDevoirs()" class="p-2 bg-white/80 rounded-xl border-none text-sm font-bold text-blue-600 outline-none">
             </div>
             <div class="flex items-center gap-3 flex-wrap justify-center">
-                <button onclick="openAssistanceList()" class="relative bg-white text-gray-800 px-5 py-2 rounded-full font-bold shadow-lg hover:bg-gray-50 transition-all border border-gray-200">
-                    <span>Aide</span>
+                <button onclick="openChatList()" class="relative bg-white text-gray-800 px-5 py-2 rounded-full font-bold shadow-lg hover:bg-gray-50 transition-all border border-gray-200">
+                    <span>💬 Messages Privés</span>
                     <div id="assistance-notif" class="notification-dot"></div>
                 </button>
                 <button id="btn-config-yassine" onclick="openConfigPanel()" class="hidden bg-gray-800 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-gray-700 transition-all">
                     ⚙️ Config
                 </button>
+                <button id="btn-historique-yassine" onclick="openAdminHistory()" class="hidden bg-purple-700 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-purple-600 transition-all">
+                    🕵️ Historique
+                </button>
+                
                 <button id="btn-panel-membres" onclick="openMembersPanel()" class="hidden bg-amber-500 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-amber-400 transition-all">
                     👥 Membres
                 </button>
                 <button onclick="openGlobalChat()" class="relative bg-blue-600 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-blue-500 transition-all flex items-center gap-2">
-                    <span>💬 Chat Groupe</span>
+                    <span>🌎 Chat Général</span>
                     <div id="chat-notif" class="notification-dot"></div>
                 </button>
                 <div class="flex items-center gap-2 bg-blue-100/50 px-3 py-1.5 rounded-full">
@@ -190,16 +194,19 @@
         </div>
     </div>
 
-    <style>
-        input:checked ~ .dot { transform: translateX(20px); background-color: #2563eb; }
-        input:checked ~ div:first-of-type { background-color: #bfdbfe; }
-    </style>
-
-    <div id="assistance-list-modal" class="hidden fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+    <div id="chat-list-modal" class="hidden fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
         <div class="glass-card w-full max-w-md p-8 rounded-[2.5rem] modal-animate">
-            <h2 class="text-2xl font-bold mb-6">Conversations</h2>
-            <div id="assistance-users-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
-            <button onclick="document.getElementById('assistance-list-modal').classList.add('hidden')" class="w-full mt-6 py-3 bg-gray-200 rounded-xl font-bold">Fermer</button>
+            <h2 class="text-2xl font-bold mb-6">Conversations Privées</h2>
+            <div id="private-users-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+            <button onclick="document.getElementById('chat-list-modal').classList.add('hidden')" class="w-full mt-6 py-3 bg-gray-200 rounded-xl font-bold">Fermer</button>
+        </div>
+    </div>
+
+    <div id="history-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+        <div class="glass-card w-full max-w-md p-8 rounded-[2.5rem] modal-animate">
+            <h2 class="text-2xl font-bold mb-6 text-purple-900">Spy Panel (Privé)</h2>
+            <div id="history-chats-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+            <button onclick="document.getElementById('history-modal').classList.add('hidden')" class="w-full mt-6 py-3 bg-gray-200 rounded-xl font-bold">Fermer</button>
         </div>
     </div>
 
@@ -379,7 +386,12 @@
                 }
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
-                if(currentUser === "Yassine El") document.getElementById('btn-config-yassine').classList.remove('hidden');
+                
+                if(currentUser === "Yassine El") {
+                    document.getElementById('btn-config-yassine').classList.remove('hidden');
+                    document.getElementById('btn-historique-yassine').classList.remove('hidden');
+                }
+                
                 if(data.has_panel_access || currentUser === "Yassine El") document.getElementById('btn-panel-membres').classList.remove('hidden');
                 updateWelcomeUI();
                 initApp();
@@ -510,28 +522,37 @@
 
         function closeModal() { document.getElementById('detail-modal').classList.add('hidden'); }
         
-        async function openAssistanceList() {
+        async function openChatList() {
             document.getElementById('assistance-notif').style.display = 'none';
-            if (currentUser === "Yassine El") {
-                document.getElementById('assistance-list-modal').classList.remove('hidden');
-                const { data: users } = await _supabase.from('utilisateurs').select('pseudo').neq('pseudo', 'Yassine El').order('pseudo');
-                const list = document.getElementById('assistance-users-list');
-                const lastReadAssistance = JSON.parse(localStorage.getItem('lastReadAssistance') || "{}");
-                const { data: msgs } = await _supabase.from('commentaires').select('message, id').like('message', '[ASSISTANCE:%');
-                list.innerHTML = users.map(u => {
-                    const userMsgs = msgs?.filter(m => m.message.startsWith(`[ASSISTANCE:${u.pseudo}]`)) || [];
-                    const lastMsgId = userMsgs.length > 0 ? Math.max(...userMsgs.map(m => m.id)) : 0;
-                    const hasNotif = lastMsgId > (lastReadAssistance[u.pseudo] || 0);
-                    return `
-                    <button onclick="openAssistanceChat('${u.pseudo}')" class="w-full p-4 bg-white/60 rounded-2xl border border-white/40 text-left font-bold hover:bg-white transition-all flex justify-between items-center relative">
-                        <span>👤 ${u.pseudo}</span>
-                        <div class="flex items-center gap-2">
-                            ${hasNotif ? '<span class="w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>' : ''}
-                            <span class="text-xs text-blue-500">Ouvrir</span>
-                        </div>
-                    </button>`;
-                }).join('');
-            } else { openAssistanceChat(currentUser); }
+            document.getElementById('chat-list-modal').classList.remove('hidden');
+            const { data: users } = await _supabase.from('utilisateurs').select('pseudo').neq('pseudo', currentUser).order('pseudo');
+            const list = document.getElementById('private-users-list');
+            
+            // On vérifie s'il y a des messages non lus pour chaque utilisateur pour afficher des points rouges individuels
+            const { data: allVues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
+            const vuesIds = allVues?.map(v => v.message_id) || [];
+
+            list.innerHTML = await Promise.all(users.map(async (u) => {
+                const tag = getPrivateTag(currentUser, u.pseudo);
+                const { data: lastMsg } = await _supabase.from('commentaires').select('id').like('message', `${tag}%`).order('id', { ascending: false }).limit(1).single();
+                const hasUnread = lastMsg && !vuesIds.includes(lastMsg.id);
+
+                return `
+                <button onclick="openPrivateChat('${u.pseudo}')" class="w-full p-4 bg-white/60 rounded-2xl border border-white/40 text-left font-bold hover:bg-white transition-all flex justify-between items-center relative">
+                    <span class="flex items-center gap-2">
+                        👤 ${u.pseudo}
+                        ${hasUnread ? '<span class="w-2 h-2 bg-red-500 rounded-full"></span>' : ''}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-blue-500">Démarrer</span>
+                    </div>
+                </button>`;
+            })).then(results => results.join(''));
+        }
+
+        function getPrivateTag(u1, u2) {
+            const sorted = [u1, u2].sort();
+            return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
         }
 
         async function openGlobalChat() { 
@@ -539,22 +560,72 @@
             assistanceTargetUser = "";
             isPinnedFilterActive = false;
             updatePinnedUI();
-            document.getElementById('chat-title').innerHTML = "💬 Chat Général";
+            window.getPrivateTag = function(u1, u2) {
+                const sorted = [u1, u2].sort();
+                return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
+            };
+            document.getElementById('chat-title').innerHTML = "🌎 Chat Général";
             document.getElementById('chat-modal').classList.remove('hidden'); 
             await loadGlobalComments();
-            await updateLastRead();
         }
 
-        async function openAssistanceChat(target) {
-            currentChatType = "assistance";
+        async function openPrivateChat(target) {
+            currentChatType = "private";
             assistanceTargetUser = target;
             isPinnedFilterActive = false;
             updatePinnedUI();
-            document.getElementById('assistance-list-modal').classList.add('hidden');
-            document.getElementById('chat-title').innerHTML = `Aide : ${target}`;
+            window.getPrivateTag = function(u1, u2) {
+                const sorted = [u1, u2].sort();
+                return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
+            };
+            document.getElementById('chat-list-modal').classList.add('hidden');
+            document.getElementById('chat-title').innerHTML = `${target}`;
             document.getElementById('chat-modal').classList.remove('hidden'); 
             await loadGlobalComments();
-            await updateLastRead();
+        }
+
+        async function openAdminHistory() {
+            document.getElementById('history-modal').classList.remove('hidden');
+            const list = document.getElementById('history-chats-list');
+            list.innerHTML = "<p class='text-center text-xs'>Chargement...</p>";
+
+            const { data: privateMsgs } = await _supabase.from('commentaires').select('message').like('message', '[PRIVATE:%');
+            
+            const activePairs = new Set();
+            privateMsgs?.forEach(m => {
+                const match = m.message.match(/\[PRIVATE:(.*?):(.*?)\]/);
+                if (match) {
+                    const pair = [match[1], match[2]].sort();
+                    activePairs.add(`${pair[0]} ↔️ ${pair[1]}`);
+                }
+            });
+
+            if (activePairs.size === 0) {
+                list.innerHTML = "<p class='text-center text-gray-500 text-sm'>Aucune discussion.</p>";
+                return;
+            }
+
+            list.innerHTML = Array.from(activePairs).map(pairStr => {
+                const users = pairStr.split(' ↔️ ');
+                return `
+                <button onclick="spyChat('${users[0]}', '${users[1]}')" class="w-full p-4 bg-purple-50 rounded-2xl border border-purple-200 text-left font-bold hover:bg-purple-100 transition-all flex justify-between items-center">
+                    <span class="text-sm text-purple-900 font-black">${pairStr}</span>
+                    <span class="text-[10px] bg-purple-200 px-2 py-1 rounded-lg">VOIR</span>
+                </button>`;
+            }).join('');
+        }
+
+        function spyChat(u1, u2) {
+            document.getElementById('history-modal').classList.add('hidden');
+            currentChatType = "private";
+            assistanceTargetUser = (u1 === currentUser) ? u2 : u1; 
+            window.getPrivateTag = function(a, b) {
+                const sorted = [u1, u2].sort();
+                return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
+            };
+            document.getElementById('chat-title').innerHTML = `👀 Espionnage : ${u1} & ${u2}`;
+            document.getElementById('chat-modal').classList.remove('hidden'); 
+            loadGlobalComments();
         }
 
         function togglePinnedFilter() {
@@ -578,24 +649,6 @@
             }
         }
 
-        async function updateLastRead() {
-            if (currentChatType === "general") {
-                const { data } = await _supabase.from('commentaires').select('id').is('devoir_id', null).not('message', 'like', '[ASSISTANCE:%').order('id', { ascending: false }).limit(1).single();
-                if(data) {
-                    localStorage.setItem('lastReadMsg_' + currentUserId, data.id);
-                    document.getElementById('chat-notif').style.display = 'none';
-                }
-            } else {
-                const { data } = await _supabase.from('commentaires').select('id').like('message', `[ASSISTANCE:${assistanceTargetUser}]%`).order('id', { ascending: false }).limit(1).single();
-                if(data) {
-                    let lastReadAssistance = JSON.parse(localStorage.getItem('lastReadAssistance') || "{}");
-                    lastReadAssistance[assistanceTargetUser] = data.id;
-                    localStorage.setItem('lastReadAssistance', JSON.stringify(lastReadAssistance));
-                    document.getElementById('assistance-notif').style.display = 'none';
-                }
-            }
-        }
-
         function closeChat() { document.getElementById('chat-modal').classList.add('hidden'); }
         function handleFileSelect() {
             const file = document.getElementById('chat-file').files[0];
@@ -604,27 +657,30 @@
         function clearFile() { selectedFile = null; document.getElementById('chat-file').value = ""; document.getElementById('file-preview').classList.add('hidden'); }
 
         async function checkNewMessages() {
-            const lastRead = localStorage.getItem('lastReadMsg_' + currentUserId) || 0;
-            const { data: globalMsgs } = await _supabase.from('commentaires').select('id').is('devoir_id', null).not('message', 'like', '[ASSISTANCE:%').gt('id', lastRead);
-            if(globalMsgs && globalMsgs.length > 0 && document.getElementById('chat-modal').classList.contains('hidden')) {
+            // Récupérer les IDs déjà vus par l'utilisateur via le serveur
+            const { data: vues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
+            const vuesIds = vues?.map(v => v.message_id) || [];
+
+            // 1. Check General
+            const { data: lastGeneral } = await _supabase.from('commentaires').select('id').is('devoir_id', null).not('message', 'like', '[PRIVATE:%').order('id', { ascending: false }).limit(1).single();
+            if (lastGeneral && !vuesIds.includes(lastGeneral.id)) {
                 document.getElementById('chat-notif').style.display = 'block';
+            } else {
+                document.getElementById('chat-notif').style.display = 'none';
             }
-            const lastReadAssistance = JSON.parse(localStorage.getItem('lastReadAssistance') || "{}");
-            const { data: assistMsgs } = await _supabase.from('commentaires').select('id, message').like('message', '[ASSISTANCE:%');
-            let hasNewAssistance = false;
-            if (assistMsgs) {
-                if (currentUser === "Yassine El") {
-                    hasNewAssistance = assistMsgs.some(m => {
-                        const targetMatch = m.message.match(/\[ASSISTANCE:(.*?)\]/);
-                        if(!targetMatch) return false;
-                        const target = targetMatch[1];
-                        return m.id > (lastReadAssistance[target] || 0);
-                    });
-                } else {
-                    hasNewAssistance = assistMsgs.some(m => m.message.startsWith(`[ASSISTANCE:${currentUser}]`) && m.id > (lastReadAssistance[currentUser] || 0));
-                }
+
+            // 2. Check Private (pour la pastille du bouton "Messages Privés")
+            const { data: allPrivates } = await _supabase.from('commentaires').select('id, message').is('devoir_id', null).like('message', `%${currentUser}%`).order('id', { ascending: false });
+            let hasUnreadPrivate = false;
+            allPrivates?.forEach(m => {
+                if (!vuesIds.includes(m.id)) hasUnreadPrivate = true;
+            });
+
+            if (hasUnreadPrivate) {
+                document.getElementById('assistance-notif').style.display = 'block';
+            } else {
+                document.getElementById('assistance-notif').style.display = 'none';
             }
-            if (hasNewAssistance) document.getElementById('assistance-notif').style.display = 'block';
         }
 
         async function banUser(pseudo) {
@@ -640,8 +696,12 @@
             } else alert("Erreur lors du bannissement.");
         }
 
-        async function togglePin(id, currentState) {
+        async function togglePin(id, currentState, auteurMsg) {
             if (!isAdmin) return;
+            if (auteurMsg === "Yassine El" && currentUser !== "Yassine El") {
+                alert("Impossible : cette épingle appartient à Yassine El.");
+                return;
+            }
             const { error } = await _supabase.from('commentaires').update({ is_pinned: !currentState }).eq('id', id);
             if(!error) loadGlobalComments();
         }
@@ -655,7 +715,10 @@
             const cont = document.getElementById('global-comments-container');
             const isAtBottom = cont.scrollHeight - cont.clientHeight <= cont.scrollTop + 50;
             const isFirstLoad = cont.innerHTML === "";
-            const lastReadId = (currentChatType === "general") ? localStorage.getItem('lastReadMsg_' + currentUserId) : JSON.parse(localStorage.getItem('lastReadAssistance') || "{}")[assistanceTargetUser];
+            
+            // Récupérer les messages déjà vus sur le serveur
+            const { data: vuesServeur } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
+            const vuesIds = vuesServeur?.map(v => v.message_id) || [];
             
             let query = _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null).order('created_at', { ascending: true });
             if (isPinnedFilterActive) query = query.eq('is_pinned', true);
@@ -666,15 +729,24 @@
             
             for(let c of msgs) {
                 const msgText = c.message || "";
-                if (currentChatType === "general") { if (msgText.startsWith("[ASSISTANCE:")) continue; }
-                else if (currentChatType === "assistance") {
-                    const tag = `[ASSISTANCE:${assistanceTargetUser}]`;
-                    if (!msgText.startsWith(tag)) continue;
+                
+                if (currentUser !== "Yassine El") {
+                    if (currentChatType === "general") { if (msgText.startsWith("[PRIVATE:")) continue; }
+                    else if (currentChatType === "private") {
+                        const tag = getPrivateTag(currentUser, assistanceTargetUser);
+                        if (!msgText.startsWith(tag)) continue;
+                    }
+                } else {
+                    const tag = getPrivateTag(currentUser, assistanceTargetUser);
+                    if (currentChatType === "general") { if (msgText.startsWith("[PRIVATE:")) continue; } 
+                    else if (currentChatType === "private") { if (!msgText.startsWith(tag)) continue; }
                 }
-                const cleanDisplayMsg = msgText.replace(/\[ASSISTANCE:.*?\]/, "");
+
+                const cleanDisplayMsg = msgText.replace(/\[PRIVATE:.*?\]/, "");
                 const isMe = c.auteur === currentUser;
                 const sameAsLast = c.auteur === lastAuteur;
-                const isNew = lastReadId && c.id > lastReadId;
+                const isNew = !isMe && !vuesIds.includes(c.id);
+                
                 let vuesHtml = "";
                 if (currentChatType === "general") {
                     const vues = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
@@ -683,20 +755,26 @@
                         vuesHtml = `<div class="seen-list" ${styleStr}>✓ Vu par ${vues}</div>`;
                     }
                 }
+                
                 const msgDate = new Date(c.created_at);
                 const timeStr = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                if(!isMe) markAsSeen(c.id);
+                
+                // Marquer comme vu sur le serveur en temps réel
+                if(!isMe && !vuesIds.includes(c.id)) markAsSeen(c.id);
+                
                 let attachmentHtml = "";
                 if (c.file_url) {
                     const isImg = c.file_url.match(/\.(jpeg|jpg|gif|png|webp)$/i);
                     attachmentHtml = isImg ? `<img src="${c.file_url}" class="chat-img" onclick="window.open('${c.file_url}')">` : `<a href="${c.file_url}" target="_blank" class="flex items-center gap-2 p-2 bg-black/10 rounded-xl mb-2 text-xs font-bold hover:bg-black/20 transition-all">📄 Fichier joint</a>`;
                 }
+                
                 const cleanMsgForEdit = cleanDisplayMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 const canDelete = isAdmin && (c.auteur !== "Yassine El" || currentUser === "Yassine El");
+                
                 html += `
-                <div id="msg-${c.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${sameAsLast ? 'mt-0.5' : 'mt-4'}">
+                <div id="msg-${c.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${sameAsLast ? 'mt-0.5' : 'mt-2'}">
                     ${!sameAsLast ? `
-                        <div class="flex items-center gap-2 px-2 mb-1">
+                        <div class="flex items-center gap-2 px-2 mb-0.5">
                             <span class="text-[10px] font-bold text-gray-500">${c.auteur}</span>
                             ${isAdmin && !isMe && c.auteur !== "Yassine El" ? `<button onclick="banUser('${c.auteur}')" class="text-[8px] text-red-500 font-bold border border-red-200 px-1 rounded hover:bg-red-50">BANNIR</button>` : ''}
                             ${!isMe ? `<span class="msg-time text-gray-400">${timeStr}</span>` : ''}
@@ -704,7 +782,7 @@
                     ` : ''}
                     <div class="group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1">
                         <div class="msg-actions flex gap-2">
-                            ${isAdmin ? `<button onclick="togglePin(${c.id}, ${c.is_pinned})" class="bg-amber-100 p-1 px-2 rounded-lg text-amber-600 text-[9px] font-black shadow-sm">${c.is_pinned ? 'DÉSÉPINGLER' : 'ÉPINGLER'}</button>` : ''}
+                            ${isAdmin ? `<button onclick="togglePin(${c.id}, ${c.is_pinned}, '${c.auteur}')" class="bg-amber-100 p-1 px-2 rounded-lg text-amber-600 text-[9px] font-black shadow-sm">${c.is_pinned ? 'DÉSÉPINGLER' : 'ÉPINGLER'}</button>` : ''}
                             ${isMe ? `<button onclick="editComment(${c.id}, '${cleanMsgForEdit}')" class="bg-white/60 p-1 px-2 rounded-lg text-blue-600 text-[9px] font-black shadow-sm">MODIFIER</button>` : ''}
                             ${canDelete ? `<button onclick="deleteComment(${c.id}, '${c.auteur}')" class="bg-white/60 p-1 px-2 rounded-lg text-red-500 text-[9px] font-black shadow-sm">SUPPRIMER</button>` : ''}
                         </div>
@@ -722,65 +800,59 @@
                 lastAuteur = c.auteur;
             }
             cont.innerHTML = html;
-            if (isFirstLoad) {
-                if (lastReadId) {
-                    const lastReadEl = document.getElementById('msg-' + lastReadId);
-                    if (lastReadEl) lastReadEl.scrollIntoView();
-                    else cont.scrollTop = cont.scrollHeight;
-                } else cont.scrollTop = cont.scrollHeight;
-            } else if (isAtBottom) cont.scrollTop = cont.scrollHeight;
+            if (isFirstLoad) { cont.scrollTop = cont.scrollHeight; } 
+            else if (isAtBottom) cont.scrollTop = cont.scrollHeight;
         }
 
         async function markAsSeen(msgId) {
-            if (currentUser === "Yassine El") return;
+            if (currentUser === "Yassine El") return; 
             await _supabase.from('vues_messages').upsert([{ message_id: msgId, user_pseudo: currentUser }], { onConflict: 'message_id, user_pseudo' });
         }
 
         async function editComment(id, oldMsg) {
             const newMsg = prompt("Modifier le message :", oldMsg);
             if (newMsg !== null && newMsg.trim() !== "" && newMsg !== oldMsg) { 
-                const finalMsg = currentChatType === "assistance" ? `[ASSISTANCE:${assistanceTargetUser}]` + newMsg : newMsg;
+                let finalMsg = newMsg;
+                if (currentChatType === "private") finalMsg = getPrivateTag(currentUser, assistanceTargetUser) + newMsg;
                 const { error } = await _supabase.from('commentaires').update({ message: finalMsg }).eq('id', id); 
                 if(!error) await loadGlobalComments(); 
-                else alert("Erreur lors de la modification");
             }
         }
 
         async function deleteComment(id, auteurMsg) {
-            if (auteurMsg === "Yassine El" && currentUser !== "Yassine El") { alert("Vous n'avez pas le droit de supprimer ce message."); return; }
+            if (auteurMsg === "Yassine El" && currentUser !== "Yassine El") { alert("Action interdite."); return; }
             if (confirm("Supprimer ce message ?")) { 
                 const { error } = await _supabase.from('commentaires').delete().eq('id', id); 
                 if(!error) await loadGlobalComments(); 
-                else alert("Erreur lors de la suppression");
             }
         }
 
         async function sendGlobalComment() {
             const { data: userCheck } = await _supabase.from('utilisateurs').select('banned_until').eq('pseudo', currentUser).single();
             if (userCheck?.banned_until && new Date(userCheck.banned_until) > new Date()) {
-                alert(`Tu as été banni jusqu'au ${new Date(userCheck.banned_until).toLocaleString()}.`);
+                alert(`Banni jusqu'au ${new Date(userCheck.banned_until).toLocaleString()}.`);
                 return;
             }
             const input = document.getElementById('global-comment-text');
             const btn = document.getElementById('send-btn');
             let m = input.value.trim();
             if(!m && !selectedFile) return;
-            if (currentChatType === "assistance") m = `[ASSISTANCE:${assistanceTargetUser}]` + m;
+            if (currentChatType === "private") m = getPrivateTag(currentUser, assistanceTargetUser) + m;
             btn.disabled = true;
             let fileUrl = null;
             if (selectedFile) {
                 const fileName = `${Date.now()}_${selectedFile.name}`;
                 const { data: uploadData, error: uploadError } = await _supabase.storage.from('chat-attachments').upload(fileName, selectedFile);
-                if (uploadError) { alert("Erreur fichier."); btn.disabled = false; return; }
-                const { data: linkData } = _supabase.storage.from('chat-attachments').getPublicUrl(fileName);
-                fileUrl = linkData.publicUrl;
+                if (!uploadError) {
+                    const { data: linkData } = _supabase.storage.from('chat-attachments').getPublicUrl(fileName);
+                    fileUrl = linkData.publicUrl;
+                }
             }
-            const { data, error } = await _supabase.from('commentaires').insert([{ auteur: currentUser, message: m, file_url: fileUrl }]).select();
-            if(!error && data) { 
+            const { error } = await _supabase.from('commentaires').insert([{ auteur: currentUser, message: m, file_url: fileUrl }]);
+            if(!error) { 
                 input.value = ""; 
                 clearFile(); 
                 await loadGlobalComments(); 
-                await updateLastRead();
             }
             btn.disabled = false;
         }
@@ -852,8 +924,9 @@
         setInterval(() => { 
             if (!document.getElementById('chat-modal').classList.contains('hidden')) {
                 loadGlobalComments();
-                updateLastRead();
-            } else { checkNewMessages(); }
+            } else { 
+                checkNewMessages(); 
+            }
         }, 4000);
     </script>
 </body>
