@@ -528,7 +528,6 @@
             const { data: users } = await _supabase.from('utilisateurs').select('pseudo').neq('pseudo', currentUser).order('pseudo');
             const list = document.getElementById('private-users-list');
             
-            // On vérifie s'il y a des messages non lus pour chaque utilisateur pour afficher des points rouges individuels
             const { data: allVues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = allVues?.map(v => v.message_id) || [];
 
@@ -657,30 +656,27 @@
         function clearFile() { selectedFile = null; document.getElementById('chat-file').value = ""; document.getElementById('file-preview').classList.add('hidden'); }
 
         async function checkNewMessages() {
-            // Récupérer les IDs déjà vus par l'utilisateur via le serveur
+            if (!currentUser) return;
             const { data: vues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = vues?.map(v => v.message_id) || [];
 
-            // 1. Check General
-            const { data: lastGeneral } = await _supabase.from('commentaires').select('id').is('devoir_id', null).not('message', 'like', '[PRIVATE:%').order('id', { ascending: false }).limit(1).single();
-            if (lastGeneral && !vuesIds.includes(lastGeneral.id)) {
-                document.getElementById('chat-notif').style.display = 'block';
-            } else {
-                document.getElementById('chat-notif').style.display = 'none';
-            }
+            // 1. Check General (Pas privé, pas écrit par moi, pas dans mes vues)
+            const { data: generalMsgs } = await _supabase.from('commentaires').select('id')
+                .is('devoir_id', null)
+                .not('message', 'like', '[PRIVATE:%')
+                .neq('auteur', currentUser);
+            
+            const hasUnreadGeneral = generalMsgs?.some(m => !vuesIds.includes(m.id));
+            document.getElementById('chat-notif').style.display = hasUnreadGeneral ? 'block' : 'none';
 
-            // 2. Check Private (pour la pastille du bouton "Messages Privés")
-            const { data: allPrivates } = await _supabase.from('commentaires').select('id, message').is('devoir_id', null).like('message', `%${currentUser}%`).order('id', { ascending: false });
-            let hasUnreadPrivate = false;
-            allPrivates?.forEach(m => {
-                if (!vuesIds.includes(m.id)) hasUnreadPrivate = true;
-            });
+            // 2. Check Private (Tag contient mon nom, pas écrit par moi, pas dans mes vues)
+            const { data: privateMsgs } = await _supabase.from('commentaires').select('id')
+                .is('devoir_id', null)
+                .like('message', `%${currentUser}%`)
+                .neq('auteur', currentUser);
 
-            if (hasUnreadPrivate) {
-                document.getElementById('assistance-notif').style.display = 'block';
-            } else {
-                document.getElementById('assistance-notif').style.display = 'none';
-            }
+            const hasUnreadPrivate = privateMsgs?.some(m => !vuesIds.includes(m.id));
+            document.getElementById('assistance-notif').style.display = hasUnreadPrivate ? 'block' : 'none';
         }
 
         async function banUser(pseudo) {
@@ -716,7 +712,6 @@
             const isAtBottom = cont.scrollHeight - cont.clientHeight <= cont.scrollTop + 50;
             const isFirstLoad = cont.innerHTML === "";
             
-            // Récupérer les messages déjà vus sur le serveur
             const { data: vuesServeur } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = vuesServeur?.map(v => v.message_id) || [];
             
@@ -748,18 +743,15 @@
                 const isNew = !isMe && !vuesIds.includes(c.id);
                 
                 let vuesHtml = "";
-                if (currentChatType === "general") {
-                    const vues = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
-                    if (vues) {
-                        const styleStr = isMe ? 'style="display:block"' : '';
-                        vuesHtml = `<div class="seen-list" ${styleStr}>✓ Vu par ${vues}</div>`;
-                    }
+                const vues = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
+                if (vues) {
+                    const styleStr = isMe ? 'style="display:block"' : '';
+                    vuesHtml = `<div class="seen-list" ${styleStr}>✓ Vu par ${vues}</div>`;
                 }
                 
                 const msgDate = new Date(c.created_at);
                 const timeStr = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                 
-                // Marquer comme vu sur le serveur en temps réel
                 if(!isMe && !vuesIds.includes(c.id)) markAsSeen(c.id);
                 
                 let attachmentHtml = "";
@@ -805,7 +797,7 @@
         }
 
         async function markAsSeen(msgId) {
-            if (currentUser === "Yassine El") return; 
+            if (!currentUser) return; 
             await _supabase.from('vues_messages').upsert([{ message_id: msgId, user_pseudo: currentUser }], { onConflict: 'message_id, user_pseudo' });
         }
 
