@@ -326,6 +326,7 @@
         let canViewPasswordsGlobal = false;
         let currentChatType = "general"; 
         let assistanceTargetUser = ""; 
+        let assistanceTargetId = ""; // Ajouté pour l'ID cible
         let isPinnedFilterActive = false;
 
         window.onload = () => { 
@@ -525,19 +526,19 @@
         async function openChatList() {
             document.getElementById('assistance-notif').style.display = 'none';
             document.getElementById('chat-list-modal').classList.remove('hidden');
-            const { data: users } = await _supabase.from('utilisateurs').select('pseudo').neq('pseudo', currentUser).order('pseudo');
+            const { data: users } = await _supabase.from('utilisateurs').select('id, pseudo').neq('id', currentUserId).order('pseudo');
             const list = document.getElementById('private-users-list');
             
             const { data: allVues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = allVues?.map(v => v.message_id) || [];
 
             list.innerHTML = await Promise.all(users.map(async (u) => {
-                const tag = getPrivateTag(currentUser, u.pseudo);
+                const tag = getPrivateTag(currentUserId, u.id); // Utilise les IDs
                 const { data: lastMsg } = await _supabase.from('commentaires').select('id').like('message', `${tag}%`).order('id', { ascending: false }).limit(1).single();
                 const hasUnread = lastMsg && !vuesIds.includes(lastMsg.id);
 
                 return `
-                <button onclick="openPrivateChat('${u.pseudo}')" class="w-full p-4 bg-white/60 rounded-2xl border border-white/40 text-left font-bold hover:bg-white transition-all flex justify-between items-center relative">
+                <button onclick="openPrivateChat('${u.pseudo}', '${u.id}')" class="w-full p-4 bg-white/60 rounded-2xl border border-white/40 text-left font-bold hover:bg-white transition-all flex justify-between items-center relative">
                     <span class="flex items-center gap-2">
                         👤 ${u.pseudo}
                         ${hasUnread ? '<span class="w-2 h-2 bg-red-500 rounded-full"></span>' : ''}
@@ -549,36 +550,30 @@
             })).then(results => results.join(''));
         }
 
-        function getPrivateTag(u1, u2) {
-            const sorted = [u1, u2].sort();
-            return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
+        function getPrivateTag(id1, id2) {
+            const sorted = [id1, id2].sort();
+            return `[PRIV_ID:${sorted[0]}:${sorted[1]}]`;
         }
 
         async function openGlobalChat() { 
             currentChatType = "general";
             assistanceTargetUser = "";
+            assistanceTargetId = "";
             isPinnedFilterActive = false;
             updatePinnedUI();
-            window.getPrivateTag = function(u1, u2) {
-                const sorted = [u1, u2].sort();
-                return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
-            };
             document.getElementById('chat-title').innerHTML = "🌎 Chat Général";
             document.getElementById('chat-modal').classList.remove('hidden'); 
             await loadGlobalComments();
         }
 
-        async function openPrivateChat(target) {
+        async function openPrivateChat(targetPseudo, targetId) {
             currentChatType = "private";
-            assistanceTargetUser = target;
+            assistanceTargetUser = targetPseudo;
+            assistanceTargetId = targetId;
             isPinnedFilterActive = false;
             updatePinnedUI();
-            window.getPrivateTag = function(u1, u2) {
-                const sorted = [u1, u2].sort();
-                return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
-            };
             document.getElementById('chat-list-modal').classList.add('hidden');
-            document.getElementById('chat-title').innerHTML = `${target}`;
+            document.getElementById('chat-title').innerHTML = `${targetPseudo}`;
             document.getElementById('chat-modal').classList.remove('hidden'); 
             await loadGlobalComments();
         }
@@ -588,14 +583,14 @@
             const list = document.getElementById('history-chats-list');
             list.innerHTML = "<p class='text-center text-xs'>Chargement...</p>";
 
-            const { data: privateMsgs } = await _supabase.from('commentaires').select('message').like('message', '[PRIVATE:%');
+            const { data: privateMsgs } = await _supabase.from('commentaires').select('message').like('message', '[PRIV_ID:%');
             
             const activePairs = new Set();
             privateMsgs?.forEach(m => {
-                const match = m.message.match(/\[PRIVATE:(.*?):(.*?)\]/);
+                const match = m.message.match(/\[PRIV_ID:(.*?):(.*?)\]/);
                 if (match) {
                     const pair = [match[1], match[2]].sort();
-                    activePairs.add(`${pair[0]} ↔️ ${pair[1]}`);
+                    activePairs.add(`${pair[0]}|${pair[1]}`);
                 }
             });
 
@@ -604,25 +599,32 @@
                 return;
             }
 
-            list.innerHTML = Array.from(activePairs).map(pairStr => {
-                const users = pairStr.split(' ↔️ ');
-                return `
-                <button onclick="spyChat('${users[0]}', '${users[1]}')" class="w-full p-4 bg-purple-50 rounded-2xl border border-purple-200 text-left font-bold hover:bg-purple-100 transition-all flex justify-between items-center">
-                    <span class="text-sm text-purple-900 font-black">${pairStr}</span>
+            const pairsArray = Array.from(activePairs);
+            let finalHtml = "";
+            for (let pStr of pairsArray) {
+                const [id1, id2] = pStr.split('|');
+                const { data: u1 } = await _supabase.from('utilisateurs').select('pseudo').eq('id', id1).single();
+                const { data: u2 } = await _supabase.from('utilisateurs').select('pseudo').eq('id', id2).single();
+                const name1 = u1?.pseudo || id1;
+                const name2 = u2?.pseudo || id2;
+
+                finalHtml += `
+                <button onclick="spyChat('${id1}', '${id2}', '${name1}', '${name2}')" class="w-full p-4 bg-purple-50 rounded-2xl border border-purple-200 text-left font-bold hover:bg-purple-100 transition-all flex justify-between items-center">
+                    <span class="text-sm text-purple-900 font-black">${name1} ↔️ ${name2}</span>
                     <span class="text-[10px] bg-purple-200 px-2 py-1 rounded-lg">VOIR</span>
                 </button>`;
-            }).join('');
+            }
+            list.innerHTML = finalHtml;
         }
 
-        function spyChat(u1, u2) {
+        function spyChat(id1, id2, n1, n2) {
             document.getElementById('history-modal').classList.add('hidden');
             currentChatType = "private";
-            assistanceTargetUser = (u1 === currentUser) ? u2 : u1; 
-            window.getPrivateTag = function(a, b) {
-                const sorted = [u1, u2].sort();
-                return `[PRIVATE:${sorted[0]}:${sorted[1]}]`;
-            };
-            document.getElementById('chat-title').innerHTML = `👀 Espionnage : ${u1} & ${u2}`;
+            // On définit la cible comme celui qui n'est pas nous (ou le second si on est admin)
+            assistanceTargetId = (id1 === currentUserId) ? id2 : id1;
+            assistanceTargetUser = (id1 === currentUserId) ? n2 : n1;
+            
+            document.getElementById('chat-title').innerHTML = `👀 Espionnage : ${n1} & ${n2}`;
             document.getElementById('chat-modal').classList.remove('hidden'); 
             loadGlobalComments();
         }
@@ -660,20 +662,18 @@
             const { data: vues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = vues?.map(v => v.message_id) || [];
 
-            // 1. Check General (Pas privé, pas écrit par moi, pas dans mes vues)
             const { data: generalMsgs } = await _supabase.from('commentaires').select('id')
                 .is('devoir_id', null)
-                .not('message', 'like', '[PRIVATE:%')
+                .not('message', 'like', '[PRIV_ID:%')
                 .neq('auteur', currentUser);
             
             const hasUnreadGeneral = generalMsgs?.some(m => !vuesIds.includes(m.id));
             document.getElementById('chat-notif').style.display = hasUnreadGeneral ? 'block' : 'none';
 
-            // 2. Check Private (Tag contient mon nom, pas écrit par moi, pas dans mes vues)
             const { data: privateMsgs } = await _supabase.from('commentaires').select('id')
                 .is('devoir_id', null)
-                .like('message', `%${currentUser}%`)
-                .neq('auteur', currentUser);
+                .like('message', `%${currentUserId}%`) // Cherche l'ID dans le tag
+                .neq('auteur_id', currentUserId);
 
             const hasUnreadPrivate = privateMsgs?.some(m => !vuesIds.includes(m.id));
             document.getElementById('assistance-notif').style.display = hasUnreadPrivate ? 'block' : 'none';
@@ -715,31 +715,38 @@
             const { data: vuesServeur } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = vuesServeur?.map(v => v.message_id) || [];
             
-            let query = _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null).order('created_at', { ascending: true });
+            let query = _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null);
+
+            if (currentUser !== "Yassine El") {
+                if (currentChatType === "general") {
+                    query = query.not('message', 'like', '[PRIV_ID:%');
+                } else if (currentChatType === "private") {
+                    const tag = getPrivateTag(currentUserId, assistanceTargetId);
+                    query = query.like('message', `${tag}%`);
+                }
+            } else {
+                if (currentChatType === "private") {
+                    const tag = getPrivateTag(currentUserId, assistanceTargetId);
+                    query = query.like('message', `${tag}%`);
+                } else {
+                    query = query.not('message', 'like', '[PRIV_ID:%');
+                }
+            }
+
             if (isPinnedFilterActive) query = query.eq('is_pinned', true);
             
-            const { data: msgs } = await query;
+            const { data: msgs, error } = await query.order('created_at', { ascending: true });
+            
+            if (error) { console.error("Erreur de chargement:", error); return; }
+
             let html = ""; let lastAuteur = "";
             if (!msgs) return;
             
             for(let c of msgs) {
                 const msgText = c.message || "";
-                
-                if (currentUser !== "Yassine El") {
-                    if (currentChatType === "general") { if (msgText.startsWith("[PRIVATE:")) continue; }
-                    else if (currentChatType === "private") {
-                        const tag = getPrivateTag(currentUser, assistanceTargetUser);
-                        if (!msgText.startsWith(tag)) continue;
-                    }
-                } else {
-                    const tag = getPrivateTag(currentUser, assistanceTargetUser);
-                    if (currentChatType === "general") { if (msgText.startsWith("[PRIVATE:")) continue; } 
-                    else if (currentChatType === "private") { if (!msgText.startsWith(tag)) continue; }
-                }
-
-                const cleanDisplayMsg = msgText.replace(/\[PRIVATE:.*?\]/, "");
-                const isMe = c.auteur === currentUser;
-                const sameAsLast = c.auteur === lastAuteur;
+                const cleanDisplayMsg = msgText.replace(/\[PRIV_ID:.*?\]/, "");
+                const isMe = c.auteur_id === currentUserId; // Comparaison par ID !
+                const sameAsLast = c.auteur_id === lastAuteur;
                 const isNew = !isMe && !vuesIds.includes(c.id);
                 
                 let vuesHtml = "";
@@ -789,7 +796,7 @@
                         </div>
                     </div>
                 </div>`;
-                lastAuteur = c.auteur;
+                lastAuteur = c.auteur_id;
             }
             cont.innerHTML = html;
             if (isFirstLoad) { cont.scrollTop = cont.scrollHeight; } 
@@ -805,7 +812,7 @@
             const newMsg = prompt("Modifier le message :", oldMsg);
             if (newMsg !== null && newMsg.trim() !== "" && newMsg !== oldMsg) { 
                 let finalMsg = newMsg;
-                if (currentChatType === "private") finalMsg = getPrivateTag(currentUser, assistanceTargetUser) + newMsg;
+                if (currentChatType === "private") finalMsg = getPrivateTag(currentUserId, assistanceTargetId) + newMsg;
                 const { error } = await _supabase.from('commentaires').update({ message: finalMsg }).eq('id', id); 
                 if(!error) await loadGlobalComments(); 
             }
@@ -820,7 +827,7 @@
         }
 
         async function sendGlobalComment() {
-            const { data: userCheck } = await _supabase.from('utilisateurs').select('banned_until').eq('pseudo', currentUser).single();
+            const { data: userCheck } = await _supabase.from('utilisateurs').select('banned_until').eq('id', currentUserId).single();
             if (userCheck?.banned_until && new Date(userCheck.banned_until) > new Date()) {
                 alert(`Banni jusqu'au ${new Date(userCheck.banned_until).toLocaleString()}.`);
                 return;
@@ -829,7 +836,7 @@
             const btn = document.getElementById('send-btn');
             let m = input.value.trim();
             if(!m && !selectedFile) return;
-            if (currentChatType === "private") m = getPrivateTag(currentUser, assistanceTargetUser) + m;
+            if (currentChatType === "private") m = getPrivateTag(currentUserId, assistanceTargetId) + m;
             btn.disabled = true;
             let fileUrl = null;
             if (selectedFile) {
@@ -840,7 +847,13 @@
                     fileUrl = linkData.publicUrl;
                 }
             }
-            const { error } = await _supabase.from('commentaires').insert([{ auteur: currentUser, message: m, file_url: fileUrl }]);
+            // MODIFICATION ICI : On envoie aussi auteur_id
+            const { error } = await _supabase.from('commentaires').insert([{ 
+                auteur: currentUser, 
+                auteur_id: currentUserId, // Stockage de l'ID permanent
+                message: m, 
+                file_url: fileUrl 
+            }]);
             if(!error) { 
                 input.value = ""; 
                 clearFile(); 
