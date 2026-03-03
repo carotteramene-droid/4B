@@ -47,6 +47,7 @@
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.6);
             box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.3), 0 4px 15px rgba(0, 0, 0, 0.05);
+            word-break: break-word;
         }
         .liquid-bubble-me {
             background: var(--primary-color);
@@ -55,6 +56,7 @@
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.2), 0 4px 15px rgba(37, 99, 235, 0.2);
+            word-break: break-word;
         }
         .time-slot {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -92,6 +94,34 @@
         .chat-img { max-width: 100%; max-height: 250px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; display: block; }
         
         .theme-swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid white; }
+
+        .bell-btn { transition: all 0.3s ease; position: relative; }
+        .bell-active {
+            background-color: #ef4444 !important;
+            color: white !important;
+            animation: bell-pulse 1.5s infinite;
+        }
+        @keyframes bell-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
+            100% { transform: scale(1); }
+        }
+
+        /* NOUVEAU STYLE : Petit cadre pour le message système */
+        .system-msg-box {
+            background: rgba(0, 0, 0, 0.04);
+            border: 1px dashed rgba(0, 0, 0, 0.08);
+            color: rgba(0, 0, 0, 0.45);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 10px;
+            margin: 12px auto;
+            text-align: center;
+            width: fit-content;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -102,7 +132,15 @@
             <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Espace 4-B</h1>
             <p class="text-gray-500 mb-6 text-sm">Entrez votre pseudo et code</p>
             <input type="text" id="login-pseudo" placeholder="Pseudo" class="w-full p-4 bg-white/80 rounded-2xl mb-3 outline-none focus:ring-4 ring-blue-200 text-center font-bold">
-            <input type="password" id="login-pwd" placeholder="MDP" class="w-full p-4 bg-white/80 rounded-2xl mb-6 outline-none focus:ring-4 ring-blue-200 text-center font-bold">
+            <div class="relative mb-6">
+                <input type="password" id="login-pwd" placeholder="MDP" class="w-full p-4 bg-white/80 rounded-2xl outline-none focus:ring-4 ring-blue-200 text-center font-bold">
+                <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors">
+                    <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12.451a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                </button>
+            </div>
             <button onclick="handleAuth()" class="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-500 transition-all">Se connecter</button>
         </div>
     </div>
@@ -114,20 +152,19 @@
                 <input type="date" id="date-selector" onchange="fetchDevoirs()" class="p-2 bg-white/80 rounded-xl border-none text-sm font-bold text-blue-600 outline-none">
             </div>
             <div class="flex items-center gap-3 flex-wrap justify-center">
+                
+                <button id="notif-bell" onclick="handleBellClick()" class="bell-btn w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all border border-gray-200 text-xl">
+                    🔔
+                    <span id="bell-count" class="hidden absolute -top-1 -right-1 bg-white text-red-600 text-[10px] font-black w-5 h-5 rounded-full border-2 border-red-600 flex items-center justify-center">0</span>
+                </button>
+
                 <button onclick="openChatList()" class="relative bg-white text-gray-800 px-5 py-2 rounded-full font-bold shadow-lg hover:bg-gray-50 transition-all border border-gray-200">
                     <span>💬 Messages Privés</span>
                     <div id="assistance-notif" class="notification-dot"></div>
                 </button>
-                <button id="btn-config-yassine" onclick="openConfigPanel()" class="hidden bg-gray-800 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-gray-700 transition-all">
-                    ⚙️ Config
-                </button>
-                <button id="btn-historique-yassine" onclick="openAdminHistory()" class="hidden bg-purple-700 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-purple-600 transition-all">
-                    🕵️ Historique
-                </button>
-                
-                <button id="btn-panel-membres" onclick="openMembersPanel()" class="hidden bg-amber-500 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-amber-400 transition-all">
-                    👥 Membres
-                </button>
+                <button id="btn-config-yassine" onclick="openConfigPanel()" class="hidden bg-gray-800 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-gray-700 transition-all">⚙️ Config</button>
+                <button id="btn-historique-yassine" onclick="openAdminHistory()" class="hidden bg-purple-700 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-purple-600 transition-all">🕵️ Historique</button>
+                <button id="btn-panel-membres" onclick="openMembersPanel()" class="hidden bg-amber-500 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-amber-400 transition-all">👥 Membres</button>
                 <button onclick="openGlobalChat()" class="relative bg-blue-600 text-white px-5 py-2 rounded-full font-bold shadow-lg hover:bg-blue-500 transition-all flex items-center gap-2">
                     <span>🌎 Chat Général</span>
                     <div id="chat-notif" class="notification-dot"></div>
@@ -159,13 +196,23 @@
         </div>
     </div>
 
+    <div id="bell-modal" class="hidden fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+        <div class="glass-card w-full max-w-sm p-6 rounded-[2.5rem] modal-animate flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold flex items-center gap-2">🔔 Notifications</h2>
+                <button onclick="dismissAllBellNotifs()" class="text-[10px] font-black text-red-500 uppercase hover:underline">Tout supprimer</button>
+            </div>
+            <div id="bell-notif-list" class="space-y-3 overflow-y-auto pr-2 flex-1"></div>
+            <button onclick="document.getElementById('bell-modal').classList.add('hidden')" class="w-full mt-6 py-3 bg-gray-100 rounded-2xl font-bold text-gray-500">Fermer</button>
+        </div>
+    </div>
+
     <div id="settings-modal" class="hidden fixed inset-0 z-[210] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
         <div class="glass-card w-full max-w-sm p-8 rounded-[2.5rem] modal-animate">
             <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">⚙️ Paramètres</h2>
             <div class="space-y-4">
                 <button onclick="changePseudo()" class="w-full p-4 bg-white/60 rounded-2xl font-bold text-left hover:bg-white transition-all">👤 Changer de pseudo</button>
                 <button onclick="changePwd()" class="w-full p-4 bg-white/60 rounded-2xl font-bold text-left hover:bg-white transition-all">🔑 Changer de mot de passe</button>
-                
                 <div class="p-4 bg-white/60 rounded-2xl">
                     <p class="font-bold mb-3">🎨 Thème & Couleurs</p>
                     <div class="grid grid-cols-4 gap-3 mb-4">
@@ -187,7 +234,6 @@
                         </div>
                     </label>
                 </div>
-                
                 <button onclick="logout()" class="w-full p-4 bg-red-100 text-red-600 rounded-2xl font-bold hover:bg-red-200 transition-all">🚪 Déconnexion</button>
             </div>
             <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="w-full mt-6 py-3 bg-gray-200 rounded-xl font-bold">Fermer</button>
@@ -326,14 +372,36 @@
         let canViewPasswordsGlobal = false;
         let currentChatType = "general"; 
         let assistanceTargetUser = ""; 
-        let assistanceTargetId = ""; // Ajouté pour l'ID cible
+        let assistanceTargetId = ""; 
         let isPinnedFilterActive = false;
+        let privateUnreadList = []; 
+        let locallyDismissedIds = []; 
 
         window.onload = () => { 
-            document.getElementById('date-selector').value = new Date().toISOString().split('T')[0]; 
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date-selector').value = today; 
             applySavedTheme();
             checkAutoLogin();
         };
+
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('login-pwd');
+            const eyeIcon = document.getElementById('eye-icon');
+            if (pwdInput.type === "password") {
+                pwdInput.type = "text";
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />`;
+            } else {
+                pwdInput.type = "password";
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12.451a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />`;
+            }
+        }
+
+        function escapeHTML(str) {
+            if (!str) return "";
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
 
         function openSettings() { document.getElementById('settings-modal').classList.remove('hidden'); }
 
@@ -343,25 +411,23 @@
             document.documentElement.style.setProperty('--bg-gradient', t.grad);
             document.documentElement.style.setProperty('--primary-color', t.primary);
             localStorage.setItem('agenda_theme', key);
-            if (currentUserId) {
-                await _supabase.from('utilisateurs').update({ theme_preference: key }).eq('id', currentUserId);
-            }
+            if (currentUserId) { await _supabase.from('utilisateurs').update({ theme_preference: key }).eq('id', currentUserId); }
         }
 
         async function toggleGlassEffect(active) {
             if (active) document.body.classList.remove('no-glass');
             else document.body.classList.add('no-glass');
             localStorage.setItem('agenda_glass', active);
-            if (currentUserId) {
-                await _supabase.from('utilisateurs').update({ glass_enabled: active }).eq('id', currentUserId);
-            }
+            if (currentUserId) { await _supabase.from('utilisateurs').update({ glass_enabled: active }).eq('id', currentUserId); }
         }
 
         function applySavedTheme() {
             const saved = localStorage.getItem('agenda_theme') || 'blue';
             const t = themes[saved];
-            document.documentElement.style.setProperty('--bg-gradient', t.grad);
-            document.documentElement.style.setProperty('--primary-color', t.primary);
+            if (t) {
+                document.documentElement.style.setProperty('--bg-gradient', t.grad);
+                document.documentElement.style.setProperty('--primary-color', t.primary);
+            }
             const glass = localStorage.getItem('agenda_glass');
             const isActive = glass === null ? true : (glass === 'true');
             document.getElementById('glass-toggle').checked = isActive;
@@ -370,42 +436,29 @@
         }
 
         async function handleAuth() {
-            const pseudo = document.getElementById('login-pseudo').value;
-            const pwd = document.getElementById('login-pwd').value;
-            const { data } = await _supabase.from('utilisateurs').select('*').eq('pseudo', pseudo).eq('password', pwd).single();
+            const pseudo = document.getElementById('login-pseudo').value.trim();
+            const pwd = document.getElementById('login-pwd');
+            if(!pseudo || !pwd.value) return;
+            const { data, error } = await _supabase.from('utilisateurs').select('*').eq('pseudo', pseudo).eq('password', pwd.value).single();
             if (data) {
-                currentUser = data.pseudo; 
-                currentUserId = data.id; 
-                isAdmin = data.is_admin;
-                canViewPasswordsGlobal = data.can_view_passwords || (currentUser === "Yassine El");
-                localStorage.setItem('agenda_pseudo', pseudo);
-                localStorage.setItem('agenda_pwd', pwd);
+                currentUser = data.pseudo; currentUserId = data.id; 
+                isAdmin = data.is_admin; canViewPasswordsGlobal = data.can_view_passwords || (currentUser === "Yassine El");
+                localStorage.setItem('agenda_pseudo', pseudo); localStorage.setItem('agenda_pwd', pwd.value); localStorage.setItem('agenda_uid', data.id);
                 if (data.theme_preference) setTheme(data.theme_preference);
-                if (data.glass_enabled !== undefined) {
-                    document.getElementById('glass-toggle').checked = data.glass_enabled;
-                    toggleGlassEffect(data.glass_enabled);
-                }
+                if (data.glass_enabled !== undefined) { document.getElementById('glass-toggle').checked = data.glass_enabled; toggleGlassEffect(data.glass_enabled); }
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
-                
-                if(currentUser === "Yassine El") {
-                    document.getElementById('btn-config-yassine').classList.remove('hidden');
-                    document.getElementById('btn-historique-yassine').classList.remove('hidden');
-                }
-                
+                if(currentUser === "Yassine El") { document.getElementById('btn-config-yassine').classList.remove('hidden'); document.getElementById('btn-historique-yassine').classList.remove('hidden'); }
                 if(data.has_panel_access || currentUser === "Yassine El") document.getElementById('btn-panel-membres').classList.remove('hidden');
-                updateWelcomeUI();
-                initApp();
-            } else { alert("Pseudo ou Code incorrect !"); }
+                updateWelcomeUI(); initApp();
+            } else { alert("Identifiants incorrects !"); }
         }
 
         async function checkAutoLogin() {
-            const p = localStorage.getItem('agenda_pseudo');
-            const pass = localStorage.getItem('agenda_pwd');
-            if(p && pass) {
-                document.getElementById('login-pseudo').value = p;
-                document.getElementById('login-pwd').value = pass;
-                handleAuth();
+            const p = localStorage.getItem('agenda_pseudo'); const pass = localStorage.getItem('agenda_pwd'); const uid = localStorage.getItem('agenda_uid');
+            if(p && pass && uid) {
+                const { data } = await _supabase.from('utilisateurs').select('id').eq('id', uid).eq('pseudo', p).eq('password', pass).single();
+                if(data) { document.getElementById('login-pseudo').value = p; document.getElementById('login-pwd').value = pass; handleAuth(); }
             }
         }
 
@@ -418,7 +471,7 @@
             const list = document.getElementById('user-rights-list');
             list.innerHTML = users.map(u => `
                 <div class="p-4 bg-white/40 rounded-2xl border border-white/50 flex flex-col gap-2">
-                    <span class="font-bold text-blue-900">${u.pseudo}</span>
+                    <span class="font-bold text-blue-900">${escapeHTML(u.pseudo)}</span>
                     <div class="flex flex-wrap gap-4 text-[10px] font-bold">
                         <label class="flex items-center gap-1 cursor-pointer bg-blue-50 px-2 py-1 rounded-lg">
                             <input type="checkbox" ${u.is_admin ? 'checked' : ''} onchange="updateUserRight('${u.id}', 'is_admin', this.checked)"> ADMIN
@@ -448,38 +501,33 @@
             body.innerHTML = users.map(u => {
                 const isBanned = u.banned_until && new Date(u.banned_until) > new Date();
                 const displayPwd = canViewPasswordsGlobal ? u.password : '***';
-                return `
-                <tr class="border-b border-gray-100">
-                    <td class="py-3 font-bold text-gray-800">${u.pseudo}</td>
-                    <td class="py-3 font-mono text-xs text-blue-600">${displayPwd}</td>
-                    <td class="py-3 text-right">
-                        ${isAdmin ? `
-                            <button onclick="${isBanned ? `unbanUser('${u.id}', '${u.pseudo}')` : `banUser('${u.pseudo}')`}" 
-                                class="px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${isBanned ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}">
-                                ${isBanned ? 'Débannir' : 'Bannir'}
-                            </button>
-                        ` : ''}
-                    </td>
-                </tr>
-                `;
+                return `<tr class="border-b border-gray-100"><td class="py-3 font-bold text-gray-800">${escapeHTML(u.pseudo)}</td><td class="py-3 font-mono text-xs text-blue-600">${displayPwd}</td><td class="py-3 text-right">${isAdmin ? `<button onclick="${isBanned ? `unbanUser('${u.id}', '${u.pseudo}')` : `banUser('${u.pseudo}')`}" class="px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${isBanned ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}">${isBanned ? 'Débannir' : 'Bannir'}</button>` : ''}</td></tr>`;
             }).join('');
         }
 
         async function unbanUser(userId, pseudo) {
             if(!confirm(`Débannir ${pseudo} ?`)) return;
-            const { error } = await _supabase.from('utilisateurs').update({ banned_until: null }).eq('id', userId);
-            if(!error) { alert(`${pseudo} a été débanni.`); openMembersPanel(); }
+            await _supabase.from('utilisateurs').update({ banned_until: null }).eq('id', userId);
+            openMembersPanel();
         }
 
         function closeMembersPanel() { document.getElementById('members-modal').classList.add('hidden'); }
 
         async function changePseudo() {
             const newPseudo = prompt("Nouveau pseudo :", currentUser);
-            if (newPseudo && newPseudo !== currentUser) {
+            if (newPseudo && newPseudo.trim() !== "" && newPseudo !== currentUser) {
+                const oldPseudo = currentUser;
                 const { error } = await _supabase.from('utilisateurs').update({ pseudo: newPseudo }).eq('id', currentUserId);
                 if (!error) { 
+                    // ENVOI DU MESSAGE SYSTÈME DANS LE CHAT GÉNÉRAL
+                    await _supabase.from('commentaires').insert([{ 
+                        auteur: "SYSTÈME", 
+                        auteur_id: "system-000", 
+                        message: `[SYSTEM_TAG] ${oldPseudo} a changé son pseudo en ${newPseudo}` 
+                    }]);
+
                     currentUser = newPseudo; 
-                    localStorage.setItem('agenda_pseudo', newPseudo);
+                    localStorage.setItem('agenda_pseudo', newPseudo); 
                     updateWelcomeUI(); 
                     alert("Pseudo mis à jour !"); 
                 }
@@ -488,12 +536,9 @@
 
         async function changePwd() {
             const newPwd = prompt("Nouveau mot de passe :");
-            if (newPwd) {
+            if (newPwd && newPwd.trim() !== "") {
                 const { error } = await _supabase.from('utilisateurs').update({ password: newPwd }).eq('id', currentUserId);
-                if (!error) {
-                    localStorage.setItem('agenda_pwd', newPwd);
-                    alert("Mot de passe mis à jour !");
-                }
+                if (!error) { localStorage.setItem('agenda_pwd', newPwd); alert("Mot de passe mis à jour !"); }
             }
         }
 
@@ -506,8 +551,7 @@
             Object.keys(schedule).forEach(time => {
                 container.innerHTML += `<div class="flex items-center justify-center text-[10px] font-bold text-gray-400">${time}</div>`;
                 days.forEach((day, i) => {
-                    const c = schedule[time][i];
-                    const isP = c === "PAUSE";
+                    const c = schedule[time][i]; const isP = c === "PAUSE";
                     container.innerHTML += `<div id="cell-${day}-${time}" onclick="${!isP ? `openDetail('${day}','${time}','${c}')`:''}" class="time-slot rounded-[1.2rem] p-2 min-h-[90px] flex flex-col ${isP?'pause':''}"><span class="text-[9px] font-bold text-blue-600 truncate">${isP?'':(c==='Cours Vide'?'Libre':c)}</span><div class="content-area mt-1 space-y-1"></div></div>`;
                 });
             });
@@ -527,27 +571,16 @@
             document.getElementById('assistance-notif').style.display = 'none';
             document.getElementById('chat-list-modal').classList.remove('hidden');
             const { data: users } = await _supabase.from('utilisateurs').select('id, pseudo').neq('id', currentUserId).order('pseudo');
-            const list = document.getElementById('private-users-list');
+            const { data: userVues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
+            const userVuesIds = userVues?.map(v => v.message_id) || [];
+            const { data: privateMsgs } = await _supabase.from('commentaires').select('id, message').like('message', `%${currentUserId}%`);
             
-            const { data: allVues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
-            const vuesIds = allVues?.map(v => v.message_id) || [];
-
-            list.innerHTML = await Promise.all(users.map(async (u) => {
-                const tag = getPrivateTag(currentUserId, u.id); // Utilise les IDs
-                const { data: lastMsg } = await _supabase.from('commentaires').select('id').like('message', `${tag}%`).order('id', { ascending: false }).limit(1).single();
-                const hasUnread = lastMsg && !vuesIds.includes(lastMsg.id);
-
-                return `
-                <button onclick="openPrivateChat('${u.pseudo}', '${u.id}')" class="w-full p-4 bg-white/60 rounded-2xl border border-white/40 text-left font-bold hover:bg-white transition-all flex justify-between items-center relative">
-                    <span class="flex items-center gap-2">
-                        👤 ${u.pseudo}
-                        ${hasUnread ? '<span class="w-2 h-2 bg-red-500 rounded-full"></span>' : ''}
-                    </span>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-blue-500">Démarrer</span>
-                    </div>
-                </button>`;
-            })).then(results => results.join(''));
+            const list = document.getElementById('private-users-list');
+            list.innerHTML = users.map(u => {
+                const tag = getPrivateTag(currentUserId, u.id);
+                const hasUnread = privateMsgs?.some(m => m.message.includes(tag) && !userVuesIds.includes(m.id));
+                return `<button onclick="openPrivateChat('${escapeHTML(u.pseudo)}', '${u.id}')" class="w-full p-4 bg-white/60 rounded-2xl border border-white/40 text-left font-bold hover:bg-white transition-all flex justify-between items-center"><span class="flex items-center gap-2">👤 ${escapeHTML(u.pseudo)} ${hasUnread ? '<span class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>' : ''}</span><span class="text-xs text-blue-500">Ouvrir</span></button>`;
+            }).join('');
         }
 
         function getPrivateTag(id1, id2) {
@@ -556,382 +589,236 @@
         }
 
         async function openGlobalChat() { 
-            currentChatType = "general";
-            assistanceTargetUser = "";
-            assistanceTargetId = "";
-            isPinnedFilterActive = false;
-            updatePinnedUI();
+            currentChatType = "general"; assistanceTargetUser = ""; assistanceTargetId = ""; isPinnedFilterActive = false; updatePinnedUI();
             document.getElementById('chat-title').innerHTML = "🌎 Chat Général";
-            document.getElementById('chat-modal').classList.remove('hidden'); 
-            await loadGlobalComments();
+            document.getElementById('chat-modal').classList.remove('hidden'); loadGlobalComments();
         }
 
         async function openPrivateChat(targetPseudo, targetId) {
-            currentChatType = "private";
-            assistanceTargetUser = targetPseudo;
-            assistanceTargetId = targetId;
-            isPinnedFilterActive = false;
-            updatePinnedUI();
+            currentChatType = "private"; assistanceTargetUser = targetPseudo; assistanceTargetId = targetId; isPinnedFilterActive = false; updatePinnedUI();
             document.getElementById('chat-list-modal').classList.add('hidden');
-            document.getElementById('chat-title').innerHTML = `${targetPseudo}`;
-            document.getElementById('chat-modal').classList.remove('hidden'); 
-            await loadGlobalComments();
+            document.getElementById('chat-title').innerHTML = `${escapeHTML(targetPseudo)}`;
+            document.getElementById('chat-modal').classList.remove('hidden'); loadGlobalComments();
         }
 
-        async function openAdminHistory() {
-            document.getElementById('history-modal').classList.remove('hidden');
-            const list = document.getElementById('history-chats-list');
-            list.innerHTML = "<p class='text-center text-xs'>Chargement...</p>";
-
-            const { data: privateMsgs } = await _supabase.from('commentaires').select('message').like('message', '[PRIV_ID:%');
-            
-            const activePairs = new Set();
-            privateMsgs?.forEach(m => {
-                const match = m.message.match(/\[PRIV_ID:(.*?):(.*?)\]/);
-                if (match) {
-                    const pair = [match[1], match[2]].sort();
-                    activePairs.add(`${pair[0]}|${pair[1]}`);
-                }
-            });
-
-            if (activePairs.size === 0) {
-                list.innerHTML = "<p class='text-center text-gray-500 text-sm'>Aucune discussion.</p>";
-                return;
-            }
-
-            const pairsArray = Array.from(activePairs);
-            let finalHtml = "";
-            for (let pStr of pairsArray) {
-                const [id1, id2] = pStr.split('|');
-                const { data: u1 } = await _supabase.from('utilisateurs').select('pseudo').eq('id', id1).single();
-                const { data: u2 } = await _supabase.from('utilisateurs').select('pseudo').eq('id', id2).single();
-                const name1 = u1?.pseudo || id1;
-                const name2 = u2?.pseudo || id2;
-
-                finalHtml += `
-                <button onclick="spyChat('${id1}', '${id2}', '${name1}', '${name2}')" class="w-full p-4 bg-purple-50 rounded-2xl border border-purple-200 text-left font-bold hover:bg-purple-100 transition-all flex justify-between items-center">
-                    <span class="text-sm text-purple-900 font-black">${name1} ↔️ ${name2}</span>
-                    <span class="text-[10px] bg-purple-200 px-2 py-1 rounded-lg">VOIR</span>
-                </button>`;
-            }
-            list.innerHTML = finalHtml;
+        function handleBellClick() {
+            const modal = document.getElementById('bell-modal');
+            modal.classList.remove('hidden');
+            renderBellNotifs();
         }
 
-        function spyChat(id1, id2, n1, n2) {
-            document.getElementById('history-modal').classList.add('hidden');
-            currentChatType = "private";
-            // On définit la cible comme celui qui n'est pas nous (ou le second si on est admin)
-            assistanceTargetId = (id1 === currentUserId) ? id2 : id1;
-            assistanceTargetUser = (id1 === currentUserId) ? n2 : n1;
-            
-            document.getElementById('chat-title').innerHTML = `👀 Espionnage : ${n1} & ${n2}`;
-            document.getElementById('chat-modal').classList.remove('hidden'); 
-            loadGlobalComments();
+        function renderBellNotifs() {
+            const list = document.getElementById('bell-notif-list');
+            const activeNotifs = privateUnreadList.filter(n => !locallyDismissedIds.includes(n.id));
+            if (activeNotifs.length === 0) { list.innerHTML = `<div class="text-center py-10 text-gray-400 text-sm italic">Aucune notification</div>`; return; }
+            list.innerHTML = activeNotifs.map(n => {
+                const cleanMsg = n.message.replace(/\[PRIV_ID:.*?\]/, "").substring(0, 30) + "...";
+                return `<div class="p-4 bg-white/60 rounded-2xl border border-white/40 flex justify-between items-start gap-2 modal-animate"><div class="flex-1 cursor-pointer" onclick="openPrivateChat('${escapeHTML(n.auteur)}', '${n.auteur_id}')"><p class="text-[10px] font-black text-blue-600 uppercase mb-1">${escapeHTML(n.auteur)}</p><p class="text-xs text-gray-700 font-medium">${escapeHTML(cleanMsg)}</p></div><button onclick="dismissBellNotif(${n.id})" class="p-1 text-gray-300 hover:text-red-500 transition-colors">✕</button></div>`;
+            }).join('');
         }
 
-        function togglePinnedFilter() {
-            isPinnedFilterActive = !isPinnedFilterActive;
-            updatePinnedUI();
-            loadGlobalComments();
-        }
+        function dismissBellNotif(id) { locallyDismissedIds.push(id); renderBellNotifs(); updateBellUI(); }
+        function dismissAllBellNotifs() { privateUnreadList.forEach(n => { if(!locallyDismissedIds.includes(n.id)) locallyDismissedIds.push(n.id); }); renderBellNotifs(); updateBellUI(); }
 
-        function updatePinnedUI() {
-            const btn = document.getElementById('btn-pinned-filter');
-            const text = document.getElementById('pinned-text');
-            const icon = document.getElementById('pinned-icon');
-            if (isPinnedFilterActive) {
-                btn.className = "bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm transition-all flex items-center gap-1";
-                text.innerText = "Afficher Tout";
-                icon.innerText = "⬅️";
-            } else {
-                btn.className = "bg-amber-100 text-amber-600 px-3 py-1.5 rounded-xl text-xs font-black shadow-sm hover:bg-amber-200 transition-all flex items-center gap-1";
-                text.innerText = "Messages Épinglés";
-                icon.innerText = "📌";
-            }
+        function updateBellUI() {
+            const count = privateUnreadList.filter(n => !locallyDismissedIds.includes(n.id)).length;
+            const bell = document.getElementById('notif-bell');
+            const badge = document.getElementById('bell-count');
+            if (count > 0) { bell.classList.add('bell-active'); badge.innerText = count; badge.classList.remove('hidden'); document.getElementById('assistance-notif').style.display = 'block'; } 
+            else { bell.classList.remove('bell-active'); badge.classList.add('hidden'); document.getElementById('assistance-notif').style.display = 'none'; }
         }
-
-        function closeChat() { document.getElementById('chat-modal').classList.add('hidden'); }
-        function handleFileSelect() {
-            const file = document.getElementById('chat-file').files[0];
-            if (file) { selectedFile = file; document.getElementById('file-name').innerText = file.name; document.getElementById('file-preview').classList.remove('hidden'); }
-        }
-        function clearFile() { selectedFile = null; document.getElementById('chat-file').value = ""; document.getElementById('file-preview').classList.add('hidden'); }
 
         async function checkNewMessages() {
             if (!currentUser) return;
             const { data: vues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = vues?.map(v => v.message_id) || [];
+            const { data: genMsgs } = await _supabase.from('commentaires').select('id').is('devoir_id', null).not('message', 'like', '[PRIV_ID:%').neq('auteur_id', currentUserId);
+            const hasUnreadGen = genMsgs?.some(m => !vuesIds.includes(m.id));
+            document.getElementById('chat-notif').style.display = hasUnreadGen ? 'block' : 'none';
+            const { data: privMsgs } = await _supabase.from('commentaires').select('id, message, auteur, auteur_id').is('devoir_id', null).like('message', `%${currentUserId}%`).neq('auteur_id', currentUserId);
+            privateUnreadList = privMsgs?.filter(m => !vuesIds.includes(m.id)) || [];
+            updateBellUI();
+        }
 
-            const { data: generalMsgs } = await _supabase.from('commentaires').select('id')
-                .is('devoir_id', null)
-                .not('message', 'like', '[PRIV_ID:%')
-                .neq('auteur', currentUser);
-            
-            const hasUnreadGeneral = generalMsgs?.some(m => !vuesIds.includes(m.id));
-            document.getElementById('chat-notif').style.display = hasUnreadGeneral ? 'block' : 'none';
+        async function openAdminHistory() {
+            document.getElementById('history-modal').classList.remove('hidden');
+            const list = document.getElementById('history-chats-list');
+            list.innerHTML = "<div class='text-center py-4'><p class='text-xs font-bold'>Analyse...</p></div>";
+            const { data: privateMsgs } = await _supabase.from('commentaires').select('message').like('message', '[PRIV_ID:%');
+            if (!privateMsgs) return;
+            const pairs = new Set();
+            privateMsgs.forEach(m => { const match = m.message.match(/\[PRIV_ID:(.*?):(.*?)\]/); if (match) { const pair = [match[1], match[2]].sort(); pairs.add(`${pair[0]}|${pair[1]}`); } });
+            const { data: allUsers } = await _supabase.from('utilisateurs').select('id, pseudo');
+            const userMap = {}; allUsers?.forEach(u => userMap[u.id] = u.pseudo);
+            list.innerHTML = Array.from(pairs).map(pStr => { const [id1, id2] = pStr.split('|'); return `<button onclick="spyChat('${id1}', '${id2}', '${escapeHTML(userMap[id1])}', '${escapeHTML(userMap[id2])}')" class="w-full p-4 bg-purple-50 rounded-2xl border border-purple-200 text-left font-bold mb-2 flex justify-between items-center"><span>${escapeHTML(userMap[id1])} ↔️ ${escapeHTML(userMap[id2])}</span><span class="text-[10px] bg-purple-600 text-white px-2 py-1 rounded-lg">VOIR</span></button>`; }).join('');
+        }
 
-            const { data: privateMsgs } = await _supabase.from('commentaires').select('id')
-                .is('devoir_id', null)
-                .like('message', `%${currentUserId}%`) // Cherche l'ID dans le tag
-                .neq('auteur_id', currentUserId);
-
-            const hasUnreadPrivate = privateMsgs?.some(m => !vuesIds.includes(m.id));
-            document.getElementById('assistance-notif').style.display = hasUnreadPrivate ? 'block' : 'none';
+        function spyChat(id1, id2, n1, n2) {
+            document.getElementById('history-modal').classList.add('hidden'); currentChatType = "private"; assistanceTargetId = id2;
+            const spyTag = getPrivateTag(id1, id2); document.getElementById('chat-title').innerHTML = `<span class="text-purple-600">🕵️ Historique :</span> ${n1} & ${n2}`;
+            document.getElementById('chat-modal').classList.remove('hidden'); loadGlobalComments(spyTag);
         }
 
         async function banUser(pseudo) {
-            if (!isAdmin) return;
-            if (pseudo === "Yassine El") { alert("Action impossible sur cet utilisateur."); return; }
-            const minutes = prompt(`Bannir ${pseudo} pendant combien de minutes ?`, "60");
-            if (!minutes) return;
-            const until = new Date(Date.now() + parseInt(minutes) * 60000).toISOString();
-            const { error } = await _supabase.from('utilisateurs').update({ banned_until: until }).eq('pseudo', pseudo);
-            if (!error) { 
-                alert(`${pseudo} est banni jusqu'à ${new Date(until).toLocaleTimeString()}`);
-                if(!document.getElementById('members-modal').classList.contains('hidden')) openMembersPanel();
-            } else alert("Erreur lors du bannissement.");
+            if (!isAdmin || pseudo === "Yassine El") return;
+            const min = prompt(`Bannir ${pseudo} (minutes) :`, "60"); if (!min) return;
+            const until = new Date(Date.now() + parseInt(min) * 60000).toISOString();
+            await _supabase.from('utilisateurs').update({ banned_until: until }).eq('pseudo', pseudo);
+            if(!document.getElementById('members-modal').classList.contains('hidden')) openMembersPanel();
         }
 
-        async function togglePin(id, currentState, auteurMsg) {
-            if (!isAdmin) return;
-            if (auteurMsg === "Yassine El" && currentUser !== "Yassine El") {
-                alert("Impossible : cette épingle appartient à Yassine El.");
-                return;
-            }
-            const { error } = await _supabase.from('commentaires').update({ is_pinned: !currentState }).eq('id', id);
-            if(!error) loadGlobalComments();
+        async function togglePin(id, state, auteur) {
+            if (!isAdmin || (auteur === "Yassine El" && currentUser !== "Yassine El")) return;
+            await _supabase.from('commentaires').update({ is_pinned: !state }).eq('id', id); loadGlobalComments();
         }
 
-        function toggleViews(msgId) {
-            const el = document.querySelector(`#msg-${msgId} .seen-list`);
-            if (el) el.style.display = (el.style.display === 'block') ? 'none' : 'block';
-        }
+        function toggleViews(id) { const el = document.querySelector(`#msg-${id} .seen-list`); if (el) el.style.display = (el.style.display === 'block') ? 'none' : 'block'; }
 
-        async function loadGlobalComments() {
+        /* MODIFICATION ICI : Gestion de l'affichage du cadre système */
+        async function loadGlobalComments(forcedTag = null) {
             const cont = document.getElementById('global-comments-container');
-            const isAtBottom = cont.scrollHeight - cont.clientHeight <= cont.scrollTop + 50;
-            const isFirstLoad = cont.innerHTML === "";
-            
-            const { data: vuesServeur } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
-            const vuesIds = vuesServeur?.map(v => v.message_id) || [];
+            const isBottom = cont.scrollHeight - cont.clientHeight <= cont.scrollTop + 50;
+            const isFirst = cont.innerHTML === "";
+            const { data: vuesServ } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
+            const vuesIds = vuesServ?.map(v => v.message_id) || [];
             
             let query = _supabase.from('commentaires').select('*, vues_messages(user_pseudo)').is('devoir_id', null);
-
-            if (currentUser !== "Yassine El") {
-                if (currentChatType === "general") {
-                    query = query.not('message', 'like', '[PRIV_ID:%');
-                } else if (currentChatType === "private") {
-                    const tag = getPrivateTag(currentUserId, assistanceTargetId);
-                    query = query.like('message', `${tag}%`);
-                }
-            } else {
-                if (currentChatType === "private") {
-                    const tag = getPrivateTag(currentUserId, assistanceTargetId);
-                    query = query.like('message', `${tag}%`);
-                } else {
-                    query = query.not('message', 'like', '[PRIV_ID:%');
-                }
-            }
-
+            if (forcedTag) { query = query.like('message', `${forcedTag}%`); } 
+            else if (currentChatType === "private") { const tag = getPrivateTag(currentUserId, assistanceTargetId); query = query.like('message', `${tag}%`); } 
+            else { query = query.not('message', 'like', '[PRIV_ID:%'); }
             if (isPinnedFilterActive) query = query.eq('is_pinned', true);
             
-            const { data: msgs, error } = await query.order('created_at', { ascending: true });
-            
-            if (error) { console.error("Erreur de chargement:", error); return; }
-
-            let html = ""; let lastAuteur = "";
+            const { data: msgs } = await query.order('created_at', { ascending: true });
             if (!msgs) return;
             
+            let html = ""; let lastAid = "";
             for(let c of msgs) {
-                const msgText = c.message || "";
-                const cleanDisplayMsg = msgText.replace(/\[PRIV_ID:.*?\]/, "");
-                const isMe = c.auteur_id === currentUserId; // Comparaison par ID !
-                const sameAsLast = c.auteur_id === lastAuteur;
-                const isNew = !isMe && !vuesIds.includes(c.id);
-                
-                let vuesHtml = "";
-                const vues = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
-                if (vues) {
-                    const styleStr = isMe ? 'style="display:block"' : '';
-                    vuesHtml = `<div class="seen-list" ${styleStr}>✓ Vu par ${vues}</div>`;
+                // SI C'EST UN MESSAGE SYSTÈME
+                if (c.message && c.message.startsWith("[SYSTEM_TAG]")) {
+                    const cleanSystemMsg = c.message.replace("[SYSTEM_TAG] ", "");
+                    html += `<div class="system-msg-box">${escapeHTML(cleanSystemMsg)}</div>`;
+                    lastAid = "system";
+                    continue;
                 }
-                
-                const msgDate = new Date(c.created_at);
-                const timeStr = msgDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                
+
+                const isMe = c.auteur_id === currentUserId; const same = c.auteur_id === lastAid;
+                const isNew = !isMe && !vuesIds.includes(c.id);
+                const msgText = (c.message || "").replace(/\[PRIV_ID:.*?\]/, "");
+                let vuesHtml = ""; const vStr = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
+                if (vStr) vuesHtml = `<div class="seen-list" ${isMe ? 'style="display:block"' : ''}>✓ Vu par ${escapeHTML(vStr)}</div>`;
+                const time = new Date(c.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                 if(!isMe && !vuesIds.includes(c.id)) markAsSeen(c.id);
                 
-                let attachmentHtml = "";
+                let fileHtml = "";
                 if (c.file_url) {
                     const isImg = c.file_url.match(/\.(jpeg|jpg|gif|png|webp)$/i);
-                    attachmentHtml = isImg ? `<img src="${c.file_url}" class="chat-img" onclick="window.open('${c.file_url}')">` : `<a href="${c.file_url}" target="_blank" class="flex items-center gap-2 p-2 bg-black/10 rounded-xl mb-2 text-xs font-bold hover:bg-black/20 transition-all">📄 Fichier joint</a>`;
+                    fileHtml = isImg ? `<img src="${c.file_url}" class="chat-img" onclick="window.open('${c.file_url}')">` : `<a href="${c.file_url}" target="_blank" class="block p-2 bg-black/10 rounded-xl mb-2 text-xs font-bold">📄 Fichier</a>`;
                 }
-                
-                const cleanMsgForEdit = cleanDisplayMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                const canDelete = isAdmin && (c.auteur !== "Yassine El" || currentUser === "Yassine El");
+                const canDel = isAdmin && (c.auteur !== "Yassine El" || currentUser === "Yassine El");
                 
                 html += `
-                <div id="msg-${c.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${sameAsLast ? 'mt-0.5' : 'mt-2'}">
-                    ${!sameAsLast ? `
-                        <div class="flex items-center gap-2 px-2 mb-0.5">
-                            <span class="text-[10px] font-bold text-gray-500">${c.auteur}</span>
-                            ${isAdmin && !isMe && c.auteur !== "Yassine El" ? `<button onclick="banUser('${c.auteur}')" class="text-[8px] text-red-500 font-bold border border-red-200 px-1 rounded hover:bg-red-50">BANNIR</button>` : ''}
-                            ${!isMe ? `<span class="msg-time text-gray-400">${timeStr}</span>` : ''}
-                        </div>
-                    ` : ''}
-                    <div class="group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1">
-                        <div class="msg-actions flex gap-2">
-                            ${isAdmin ? `<button onclick="togglePin(${c.id}, ${c.is_pinned}, '${c.auteur}')" class="bg-amber-100 p-1 px-2 rounded-lg text-amber-600 text-[9px] font-black shadow-sm">${c.is_pinned ? 'DÉSÉPINGLER' : 'ÉPINGLER'}</button>` : ''}
-                            ${isMe ? `<button onclick="editComment(${c.id}, '${cleanMsgForEdit}')" class="bg-white/60 p-1 px-2 rounded-lg text-blue-600 text-[9px] font-black shadow-sm">MODIFIER</button>` : ''}
-                            ${canDelete ? `<button onclick="deleteComment(${c.id}, '${c.auteur}')" class="bg-white/60 p-1 px-2 rounded-lg text-red-500 text-[9px] font-black shadow-sm">SUPPRIMER</button>` : ''}
-                        </div>
-                        <div onclick="toggleViews(${c.id})" class="p-3 px-4 rounded-2xl text-base shadow-sm max-w-[85%] cursor-pointer active:scale-95 transition-transform ${isMe ? 'liquid-bubble-me text-white rounded-tr-none' : 'liquid-bubble text-gray-800 rounded-tl-none'} ${isNew ? 'ring-2 ring-blue-400 ring-offset-2' : ''} ${c.is_pinned ? 'border-2 border-amber-400 shadow-amber-100' : ''}">
-                            ${c.is_pinned ? '<div class="text-[9px] font-black text-amber-600 mb-1 flex items-center gap-1">📌 MESSAGE ÉPINGLÉ</div>' : ''}
-                            ${attachmentHtml}
-                            ${cleanDisplayMsg}
-                            <div class="flex justify-between items-center gap-4 mt-1">
-                                ${vuesHtml || '<div></div>'}
-                                ${isMe ? `<span class="msg-time text-blue-200 text-[8px]">${timeStr}</span>` : ''}
+                    <div id="msg-${c.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${same ? 'mt-0.5' : 'mt-2'}">
+                        ${!same ? `<div class="px-2 mb-0.5"><span class="text-[10px] font-bold text-gray-500">${escapeHTML(c.auteur)}</span></div>` : ''}
+                        <div class="group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1">
+                            <div class="msg-actions flex gap-2">
+                                ${isAdmin ? `<button onclick="togglePin(${c.id}, ${c.is_pinned}, '${c.auteur}')" class="bg-amber-100 p-1 rounded text-amber-600 text-[9px] font-black">${c.is_pinned ? '📌' : 'FIXER'}</button>` : ''}
+                                ${isMe ? `<button onclick="editComment(${c.id}, '${escapeHTML(msgText).replace(/'/g, "\\'")}')" class="bg-white/60 p-1 rounded text-blue-600 text-[9px] font-black">EDIT</button>` : ''}
+                                ${canDel ? `<button onclick="deleteComment(${c.id}, '${c.auteur}')" class="bg-white/60 p-1 rounded text-red-500 text-[9px] font-black">SUPPR</button>` : ''}
+                            </div>
+                            <div onclick="toggleViews(${c.id})" class="p-3 px-4 rounded-2xl shadow-sm max-w-[85%] cursor-pointer ${isMe ? 'liquid-bubble-me text-white rounded-tr-none' : 'liquid-bubble text-gray-800 rounded-tl-none'} ${isNew ? 'ring-2 ring-blue-400' : ''} ${c.is_pinned ? 'border-2 border-amber-400' : ''}">
+                                ${c.is_pinned ? '<div class="text-[9px] font-black text-amber-600 mb-1">📌 FIXÉ</div>' : ''}
+                                ${fileHtml}${escapeHTML(msgText)}
+                                <div class="flex justify-between items-center gap-4 mt-1">
+                                    ${vuesHtml || '<div></div>'}<span class="msg-time ${isMe ? 'text-blue-200' : 'text-gray-400'} text-[8px]">${time}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>`;
-                lastAuteur = c.auteur_id;
+                    </div>`;
+                lastAid = c.auteur_id;
             }
-            cont.innerHTML = html;
-            if (isFirstLoad) { cont.scrollTop = cont.scrollHeight; } 
-            else if (isAtBottom) cont.scrollTop = cont.scrollHeight;
+            cont.innerHTML = html; if (isFirst || isBottom) cont.scrollTop = cont.scrollHeight;
         }
 
-        async function markAsSeen(msgId) {
-            if (!currentUser) return; 
-            await _supabase.from('vues_messages').upsert([{ message_id: msgId, user_pseudo: currentUser }], { onConflict: 'message_id, user_pseudo' });
-        }
+        async function markAsSeen(id) { if (!currentUser) return; await _supabase.from('vues_messages').upsert([{ message_id: id, user_pseudo: currentUser }], { onConflict: 'message_id, user_pseudo' }); }
 
-        async function editComment(id, oldMsg) {
-            const newMsg = prompt("Modifier le message :", oldMsg);
-            if (newMsg !== null && newMsg.trim() !== "" && newMsg !== oldMsg) { 
-                let finalMsg = newMsg;
-                if (currentChatType === "private") finalMsg = getPrivateTag(currentUserId, assistanceTargetId) + newMsg;
-                const { error } = await _supabase.from('commentaires').update({ message: finalMsg }).eq('id', id); 
-                if(!error) await loadGlobalComments(); 
+        async function editComment(id, old) {
+            const m = prompt("Modifier :", old);
+            if (m && m !== old) { 
+                let f = m; if (currentChatType === "private") f = getPrivateTag(currentUserId, assistanceTargetId) + m;
+                await _supabase.from('commentaires').update({ message: f }).eq('id', id); loadGlobalComments(); 
             }
         }
 
-        async function deleteComment(id, auteurMsg) {
-            if (auteurMsg === "Yassine El" && currentUser !== "Yassine El") { alert("Action interdite."); return; }
-            if (confirm("Supprimer ce message ?")) { 
-                const { error } = await _supabase.from('commentaires').delete().eq('id', id); 
-                if(!error) await loadGlobalComments(); 
-            }
-        }
+        async function deleteComment(id, auteur) { if (auteur === "Yassine El" && currentUser !== "Yassine El") return; if (confirm("Supprimer ?")) { await _supabase.from('commentaires').delete().eq('id', id); loadGlobalComments(); } }
 
         async function sendGlobalComment() {
-            const { data: userCheck } = await _supabase.from('utilisateurs').select('banned_until').eq('id', currentUserId).single();
-            if (userCheck?.banned_until && new Date(userCheck.banned_until) > new Date()) {
-                alert(`Banni jusqu'au ${new Date(userCheck.banned_until).toLocaleString()}.`);
-                return;
-            }
-            const input = document.getElementById('global-comment-text');
-            const btn = document.getElementById('send-btn');
-            let m = input.value.trim();
+            const { data: u } = await _supabase.from('utilisateurs').select('banned_until').eq('id', currentUserId).single();
+            if (u?.banned_until && new Date(u.banned_until) > new Date()) { alert("Banni."); return; }
+            const input = document.getElementById('global-comment-text'); let m = input.value.trim();
             if(!m && !selectedFile) return;
             if (currentChatType === "private") m = getPrivateTag(currentUserId, assistanceTargetId) + m;
-            btn.disabled = true;
-            let fileUrl = null;
+            let url = null;
             if (selectedFile) {
-                const fileName = `${Date.now()}_${selectedFile.name}`;
-                const { data: uploadData, error: uploadError } = await _supabase.storage.from('chat-attachments').upload(fileName, selectedFile);
-                if (!uploadError) {
-                    const { data: linkData } = _supabase.storage.from('chat-attachments').getPublicUrl(fileName);
-                    fileUrl = linkData.publicUrl;
-                }
+                const name = `${Date.now()}_${selectedFile.name}`;
+                const { data } = await _supabase.storage.from('chat-attachments').upload(name, selectedFile);
+                if (data) url = _supabase.storage.from('chat-attachments').getPublicUrl(name).data.publicUrl;
             }
-            // MODIFICATION ICI : On envoie aussi auteur_id
-            const { error } = await _supabase.from('commentaires').insert([{ 
-                auteur: currentUser, 
-                auteur_id: currentUserId, // Stockage de l'ID permanent
-                message: m, 
-                file_url: fileUrl 
-            }]);
-            if(!error) { 
-                input.value = ""; 
-                clearFile(); 
-                await loadGlobalComments(); 
-            }
-            btn.disabled = false;
+            await _supabase.from('commentaires').insert([{ auteur: currentUser, auteur_id: currentUserId, message: m, file_url: url }]);
+            input.value = ""; clearFile(); loadGlobalComments();
         }
 
         async function fetchDevoirs() {
-            const selectedDate = document.getElementById('date-selector').value;
-            const range = getWeekRange(selectedDate);
-            const { data } = await _supabase.from('devoirs').select('*').gte('date_due', range.start).lte('date_due', range.end);
-            document.querySelectorAll('.content-area').forEach(el => el.innerHTML = "");
+            const date = document.getElementById('date-selector').value; const r = getWeekRange(date);
+            const { data } = await _supabase.from('devoirs').select('*').gte('date_due', r.start).lte('date_due', r.end);
+            document.querySelectorAll('.content-area').forEach(e => e.innerHTML = "");
             data?.forEach(d => {
                 const cell = document.getElementById(`cell-${d.jour}-${d.heure}`);
-                if(cell) {
-                    const isEval = d.type === 'Evaluation';
-                    cell.querySelector('.content-area').innerHTML += `<div class="text-[8px] p-1 rounded-lg ${isEval ? 'bg-red-100 text-red-600' : 'bg-white/60 text-blue-600'} font-bold">${isEval ? '🔥' : '•'} ${d.description}</div>`;
-                }
+                if(cell) cell.querySelector('.content-area').innerHTML += `<div class="text-[8px] p-1 rounded-lg ${d.type === 'Evaluation' ? 'bg-red-100 text-red-600' : 'bg-white/60 text-blue-600'} font-bold">• ${escapeHTML(d.description)}</div>`;
             });
             updateWeeklySummary(data);
         }
 
-        function getWeekRange(dateInput) {
-            let curr = new Date(dateInput);
-            let first = curr.getDate() - curr.getDay() + 1;
-            let last = first + 4;
-            return {
-                start: new Date(new Date(dateInput).setDate(first)).toISOString().split('T')[0],
-                end: new Date(new Date(dateInput).setDate(last)).toISOString().split('T')[0]
-            };
+        function getWeekRange(d) {
+            let c = new Date(d); let day = c.getDay(); let diff = c.getDate() - day + (day == 0 ? -6 : 1);
+            let mon = new Date(c.setDate(diff)); let fri = new Date(new Date(mon).setDate(mon.getDate() + 4));
+            return { start: mon.toISOString().split('T')[0], end: fri.toISOString().split('T')[0] };
         }
 
         function updateWeeklySummary(data) {
-            const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
-            const container = document.getElementById('weekly-summary');
-            container.innerHTML = "";
-            days.forEach(day => {
-                const dayDevoirs = data?.filter(d => d.jour === day) || [];
-                let html = `<div class="space-y-3"><h3 class="font-bold text-blue-900 border-b border-white/40 pb-2">${day}</h3>`;
-                if(dayDevoirs.length === 0) html += `<p class="italic text-gray-400">Libre</p>`;
-                else dayDevoirs.forEach(d => html += `<div class="p-2 liquid-bubble rounded-xl text-xs"><b>${d.matiere}</b>: ${d.description}</div>`);
-                container.innerHTML += html + `</div>`;
+            const container = document.getElementById('weekly-summary'); container.innerHTML = "";
+            ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"].forEach(day => {
+                const ds = data?.filter(d => d.jour === day) || [];
+                container.innerHTML += `<div class="space-y-3"><h3 class="font-bold text-blue-900 border-b border-white/40 pb-2">${day}</h3>${ds.length ? ds.map(d => `<div class="p-2 liquid-bubble rounded-xl text-xs"><b>${escapeHTML(d.matiere)}</b>: ${escapeHTML(d.description)}</div>`).join('') : '<p class="italic text-gray-400">Libre</p>'}</div>`;
             });
         }
 
         async function addHomework() {
-            const tsk = document.getElementById('task').value;
-            if(!tsk) return;
-            await _supabase.from('devoirs').insert([{ 
-                matiere: document.getElementById('detail-course').innerText, 
-                description: tsk, jour: selectedDay, heure: selectedHour, 
-                auteur: currentUser, type: document.getElementById('work-type').value, date_due: document.getElementById('date-selector').value 
-            }]);
+            const tsk = document.getElementById('task').value.trim(); if(!tsk) return;
+            const mat = document.getElementById('detail-course').innerText; const date = document.getElementById('date-selector').value;
+            await _supabase.from('devoirs').insert([{ matiere: mat, description: tsk, jour: selectedDay, heure: selectedHour, auteur: currentUser, type: document.getElementById('work-type').value, date_due: date }]);
             document.getElementById('task').value = ""; refreshDetailList(); fetchDevoirs();
         }
 
         async function refreshDetailList() {
             const { data } = await _supabase.from('devoirs').select('*').eq('jour', selectedDay).eq('heure', selectedHour).eq('date_due', document.getElementById('date-selector').value);
-            document.getElementById('detail-items-list').innerHTML = data?.map(d => `
-                <div class="p-3 liquid-bubble rounded-2xl flex justify-between items-center shadow-sm">
-                    <span class="text-sm">${d.description}</span>
-                    <button onclick="deleteDevoir(${d.id}, event)" class="text-red-400 px-2">&times;</button>
-                </div>`).join('') || "";
+            document.getElementById('detail-items-list').innerHTML = data?.map(d => `<div class="p-3 liquid-bubble rounded-2xl flex justify-between items-center shadow-sm"><span>${escapeHTML(d.description)}</span><button onclick="deleteDevoir(${d.id}, event)" class="text-red-400">&times;</button></div>`).join('') || "";
         }
 
-        async function deleteDevoir(id, e) {
-            e.stopPropagation();
-            await _supabase.from('devoirs').delete().eq('id', id);
-            refreshDetailList(); fetchDevoirs();
+        async function deleteDevoir(id, e) { e.stopPropagation(); await _supabase.from('devoirs').delete().eq('id', id); refreshDetailList(); fetchDevoirs(); }
+        function togglePinnedFilter() { isPinnedFilterActive = !isPinnedFilterActive; updatePinnedUI(); loadGlobalComments(); }
+        function updatePinnedUI() {
+            const b = document.getElementById('btn-pinned-filter');
+            b.className = isPinnedFilterActive ? "bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm" : "bg-amber-100 text-amber-600 px-3 py-1.5 rounded-xl text-xs font-black shadow-sm hover:bg-amber-200";
+            document.getElementById('pinned-text').innerText = isPinnedFilterActive ? "Tout" : "Messages Fixés";
         }
+        function closeChat() { document.getElementById('chat-modal').classList.add('hidden'); }
+        function handleFileSelect() { const f = document.getElementById('chat-file').files[0]; if (f) { selectedFile = f; document.getElementById('file-name').innerText = f.name; document.getElementById('file-preview').classList.remove('hidden'); } }
+        function clearFile() { selectedFile = null; document.getElementById('chat-file').value = ""; document.getElementById('file-preview').classList.add('hidden'); }
 
         setInterval(() => { 
             if (!document.getElementById('chat-modal').classList.contains('hidden')) {
-                loadGlobalComments();
-            } else { 
-                checkNewMessages(); 
-            }
+                if (!document.getElementById('chat-title').innerText.includes("🕵️ Historique")) loadGlobalComments();
+            } else if (currentUser) { checkNewMessages(); }
         }, 4000);
     </script>
 </body>
