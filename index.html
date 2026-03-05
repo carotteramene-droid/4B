@@ -90,7 +90,7 @@
 
         .seen-list { font-size: 9px; color: rgba(255,255,255,0.7); margin-top: 2px; }
         .liquid-bubble .seen-list { color: rgba(0,0,0,0.5); display: none; }
-        .msg-time { font-size: 9px; opacity: 0.6; font-weight: bold; }
+        .msg-time { font-size: 9px; opacity: 0.8; font-weight: bold; line-height: 1; margin-top: 2px; }
         .chat-img { max-width: 100%; max-height: 250px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; display: block; }
         
         .theme-swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid white; }
@@ -120,6 +120,14 @@
             width: fit-content;
             text-transform: uppercase;
             letter-spacing: 0.025em;
+        }
+
+        #typing-indicator {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary-color);
+            padding: 4px 12px;
+            height: 20px;
         }
     </style>
 </head>
@@ -293,6 +301,7 @@
             <button onclick="closeChat()" class="w-12 h-12 flex items-center justify-center bg-white/40 rounded-full text-3xl hover:bg-white transition-colors">&times;</button>
         </div>
         <div id="global-comments-container" class="flex-1 overflow-y-auto p-6 space-y-1 max-w-4xl mx-auto w-full"></div>
+        <div id="typing-indicator" class="max-w-4xl mx-auto w-full italic"></div>
         <div class="p-6 bg-white/20 border-t border-white/20">
             <div class="max-w-4xl mx-auto w-full flex flex-col gap-3">
                 <div id="file-preview" class="hidden text-xs text-blue-600 font-bold px-3 py-2 bg-blue-50/50 rounded-xl flex justify-between items-center backdrop-blur-md">
@@ -304,7 +313,7 @@
                         <input type="file" id="chat-file" class="hidden" onchange="handleFileSelect()">
                         <span class="text-xl">📎</span>
                     </label>
-                    <input type="text" id="global-comment-text" onkeydown="if(event.key==='Enter') sendGlobalComment()" placeholder="Écrire un message..." class="flex-1 p-4 rounded-2xl bg-white/50 border border-white/50 outline-none backdrop-blur-md">
+                    <input type="text" id="global-comment-text" oninput="handleTyping()" onkeydown="if(event.key==='Enter') sendGlobalComment()" placeholder="Écrire un message..." class="flex-1 p-4 rounded-2xl bg-white/50 border border-white/50 outline-none backdrop-blur-md">
                     <button id="send-btn" onclick="sendGlobalComment()" class="px-6 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">Envoyer</button>
                 </div>
             </div>
@@ -375,6 +384,8 @@
         let isPinnedFilterActive = false;
         let privateUnreadList = []; 
         let locallyDismissedIds = []; 
+        let typingChannel;
+        let typingTimeout;
 
         window.onload = () => { 
             const today = new Date().toISOString().split('T')[0];
@@ -450,7 +461,36 @@
                 if(currentUser === "Yassine El") { document.getElementById('btn-config-yassine').classList.remove('hidden'); document.getElementById('btn-historique-yassine').classList.remove('hidden'); }
                 if(data.has_panel_access || currentUser === "Yassine El") document.getElementById('btn-panel-membres').classList.remove('hidden');
                 updateWelcomeUI(); initApp();
+                setupTypingListener();
             } else { alert("Identifiants incorrects !"); }
+        }
+
+        function setupTypingListener() {
+            typingChannel = _supabase.channel('typing-indicator', { configs: { broadcast: { self: false } } })
+                .on('broadcast', { event: 'typing' }, (payload) => {
+                    const { user, target, chat } = payload.payload;
+                    const indicator = document.getElementById('typing-indicator');
+                    
+                    let shouldShow = false;
+                    if (chat === "general" && currentChatType === "general") shouldShow = true;
+                    if (chat === "private" && currentChatType === "private" && target === currentUserId && user === assistanceTargetUser) shouldShow = true;
+
+                    if (shouldShow) {
+                        indicator.innerText = `${user} est en train d'écrire...`;
+                        clearTimeout(typingTimeout);
+                        typingTimeout = setTimeout(() => { indicator.innerText = ""; }, 2000);
+                    }
+                })
+                .subscribe();
+        }
+
+        function handleTyping() {
+            if (!typingChannel) return;
+            typingChannel.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: { user: currentUser, target: assistanceTargetId, chat: currentChatType }
+            });
         }
 
         async function checkAutoLogin() {
@@ -571,13 +611,11 @@
             const { data: userVues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const userVuesIds = userVues?.map(v => v.message_id) || [];
             
-            // On vérifie plus précisément les messages non lus pour chaque utilisateur
             const { data: privateMsgs } = await _supabase.from('commentaires').select('id, message').is('devoir_id', null).like('message', `%${currentUserId}%`);
             
             const list = document.getElementById('private-users-list');
             list.innerHTML = users.map(u => {
                 const tag = getPrivateTag(currentUserId, u.id);
-                // Vérification stricte du tag pour les points rouges
                 const hasUnread = privateMsgs?.some(m => {
                     const regex = new RegExp(`\\[PRIV_ID:(.*?:)?${currentUserId}(:.*?)?\\]`);
                     return m.message.includes(tag) && regex.test(m.message) && !userVuesIds.includes(m.id);
@@ -631,34 +669,27 @@
             else { bell.classList.remove('bell-active'); badge.classList.add('hidden'); document.getElementById('assistance-notif').style.display = 'none'; }
         }
 
-        /* CORRECTION : VERIFICATION TRIPLE POUR LES NOTIFICATIONS PRIVEES */
         async function checkNewMessages() {
             if (!currentUser) return;
             const { data: vues } = await _supabase.from('vues_messages').select('message_id').eq('user_pseudo', currentUser);
             const vuesIds = vues?.map(v => v.message_id) || [];
             
-            // 1. Notifs Générales (Simple)
             const { data: genMsgs } = await _supabase.from('commentaires').select('id').is('devoir_id', null).not('message', 'like', '[PRIV_ID:%').neq('auteur_id', currentUserId);
             const hasUnreadGen = genMsgs?.some(m => !vuesIds.includes(m.id));
             document.getElementById('chat-notif').style.display = hasUnreadGen ? 'block' : 'none';
 
-            // 2. Notifs Privées : Triple Vérification
-            // - Vérif 1: SQL précise avec séparateurs pour éviter ID:1 contre ID:10
             const { data: privMsgs } = await _supabase.from('commentaires')
                 .select('id, message, auteur, auteur_id')
                 .is('devoir_id', null)
-                .or(`message.like.%:${currentUserId}:%,message.like.%:${currentUserId}]%`) // Recherche précise SQL
+                .or(`message.like.%:${currentUserId}:%,message.like.%:${currentUserId}]%`) 
                 .neq('auteur_id', currentUserId);
 
-            // - Vérif 2: Filtrage JS strict pour confirmer que l'ID est bien isolé dans le tag
             const filteredPriv = privMsgs?.filter(m => {
                 const tagMatch = m.message.match(/\[PRIV_ID:(\d+):(\d+)\]/);
                 if (!tagMatch) return false;
-                // On vérifie que l'ID est bien l'un des deux chiffres EXACTS
                 return tagMatch[1] === currentUserId.toString() || tagMatch[2] === currentUserId.toString();
             }) || [];
 
-            // - Vérif 3: Exclusion des messages déjà vus
             privateUnreadList = filteredPriv.filter(m => !vuesIds.includes(m.id));
             updateBellUI();
         }
@@ -727,7 +758,11 @@
                 const msgText = (c.message || "").replace(/\[PRIV_ID:.*?\]/, "");
                 let vuesHtml = ""; const vStr = c.vues_messages?.filter(v => v.user_pseudo !== "Yassine El").map(v => v.user_pseudo).join(', ') || "";
                 if (vStr) vuesHtml = `<div class="seen-list" ${isMe ? 'style="display:block"' : ''}>✓ Vu par ${escapeHTML(vStr)}</div>`;
-                const time = new Date(c.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                
+                const d = new Date(c.created_at);
+                const dayName = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][d.getDay()];
+                const time = `${dayName}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                
                 if(!isMe && !vuesIds.includes(c.id)) markAsSeen(c.id);
                 
                 let fileHtml = "";
